@@ -30,12 +30,15 @@ class Tools_Pages {
 		'seat_create'            => 'Værkstedsplads oprettet',
 		'seat_status'            => 'Værkstedsstatus ændret',
 		'signup_existing'        => 'Tilmelding med kendt e-mail',
-		'key_issue'              => 'Brik registreret',
+		'key_issue'              => 'Nøgle udleveret',
+		'key_return'             => 'Nøgle afleveret',
 		'period_invoiced'        => 'Markeret faktureret',
 		'period_pending'         => 'Fakturering fortrudt',
 		'period_paid'            => 'Betalt (Dinero)',
 		'period_invoiced_dinero' => 'Faktureret (Dinero)',
 		'period_unpaid'          => 'Markeret ikke betalt',
+		'period_paid_manual'      => 'Betaling registreret manuelt',
+		'period_paid_manual_undo' => 'Manuel betaling fortrudt',
 		'email_sent'             => 'E-mail sendt',
 		'email_failed'           => 'E-mail fejlede',
 		'import'                 => 'Import',
@@ -52,6 +55,10 @@ class Tools_Pages {
 		'gate_download'          => 'Importfil hentet',
 		'easyaccess_match'       => 'Afstemt med EasyAccess',
 		'retention_run'          => 'Automatisk sletning',
+		'wp_user_created'        => 'WordPress-bruger oprettet',
+		'wp_user_linked'         => 'Koblet til WordPress-bruger',
+		'wp_user_unlinked'       => 'WordPress-kobling fjernet',
+		'wp_roles_changed'       => 'Roller ændret',
 	);
 
 	/** Hooks. */
@@ -205,7 +212,7 @@ class Tools_Pages {
 		?>
 		<details class="vhus-delete">
 			<summary>Slet medlem</summary>
-			<p>Sletter alle oplysninger om <?php echo esc_html( $m->name ); ?> her: stamdata, værksteder, kontingent og brikker. Det kan ikke fortrydes. Er medlemmet i EasyAccess, kommer der en opgave på Port om at slette dem dér. Fakturaer i Dinero berøres ikke.</p>
+			<p>Sletter alle oplysninger om <?php echo esc_html( $m->name ); ?> her: stamdata, værksteder, kontingent og nøgler. Det kan ikke fortrydes. Er medlemmet i EasyAccess, kommer der en opgave på Port om at slette dem dér. Fakturaer i Dinero og en eventuel WordPress-bruger berøres ikke; slet brugeren under Brugere, hvis den ikke skal bruges mere.</p>
 			<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="vhus-inline">
 				<input type="hidden" name="action" value="vhus_delete_member">
 				<input type="hidden" name="member_id" value="<?php echo (int) $m->id; ?>">
@@ -345,7 +352,8 @@ class Tools_Pages {
 					'Listen står i den rækkefølge, folk skrev sig op. Ring eller skriv til den næste, når der er en ledig plads.',
 					'Tryk <strong>Godkend</strong>, når personen skal være medlem. De får en e-mail, og kassereren får besked om at sende en faktura. Porten åbner først for dem, når fakturaen er betalt.',
 					'Tryk <strong>Afvis</strong>, hvis der ikke er plads til dem. Du kan skrive en kort besked, som kommer med i e-mailen.',
-					'Melder et medlem sig ud, så åbn medlemmet under <strong>Medlemmer</strong> og sæt værkstedet til <em>Udmeldt</em>. Portadministratoren får en opgave om at fjerne adgangen.',
+					'Når et nyt medlem får nøglen til værkstedet, så registrér det under <em>Værkstedsnøgler</em> på medlemmets side. Nummer er valgfrit. Mister nogen nøglen, så udlevér en ny med "Skal betales"; kassereren ser det.',
+					'Melder et medlem sig ud, så åbn medlemmet under <strong>Medlemmer</strong> og sæt værkstedet til <em>Udmeldt</em>. Portadministratoren får en opgave om at fjerne adgangen, og nøglen står som "Ikke afleveret", til du markerer den afleveret.',
 					'Du kan kun se dit eget værksted og kun om kontingentet er betalt, ikke beløb.',
 				),
 			),
@@ -353,11 +361,12 @@ class Tools_Pages {
 				'title' => 'Kasserer',
 				'mine'  => current_user_can( Roles::CAP_INVOICE ),
 				'steps' => array(
-					'Nye medlemmer kommer på <strong>Fakturering</strong>, når de er godkendt, med beløbet udregnet: helt eller halvt kontingent og nøglebrik for nye medlemmer.',
-					'Opret og send fakturaen i Dinero som altid. Brug de samme varer hver gang (kontingent, halvt kontingent, nøglebrik).',
+					'Nye medlemmer kommer på <strong>Fakturering</strong>, når de er godkendt, med beløbet udregnet: helt eller halvt kontingent og nøgle for nye medlemmer.',
+					'Opret og send fakturaen i Dinero som altid. Brug de samme varer hver gang (kontingent, halvt kontingent, nøgle).',
 					'Markér personen som faktureret på listen bagefter. Kan fortrydes.',
-					'Betaling kommer automatisk fra Dinero hver nat, eller når du trykker <strong>Synkronisér nu</strong> under <strong>Dinero</strong>. Betalt kan ikke sættes med hånden.',
-					'Under <strong>Dinero</strong> vælger du én gang, hvilke Dinero-varer der er kontingent og nøglebrik, og kobler medlemmer, hvis e-mail ikke passer med Dinero.',
+					'Betaling kommer automatisk fra Dinero hver nat, eller når du trykker <strong>Synkronisér nu</strong> under <strong>Dinero</strong>.',
+					'Har nogen betalt uden om Dinero (fx før systemet eller kontant), så åbn medlemmet og brug <em>Registrér betaling uden om Dinero</em> under Kontingent. Det bliver markeret som manuelt og kan fortrydes.',
+					'Under <strong>Dinero</strong> vælger du én gang, hvilke Dinero-varer der er kontingent og nøgle, og kobler medlemmer, hvis e-mail ikke passer med Dinero.',
 					'I april fakturerer du fornyelserne i Dinero som altid. Når de bliver betalt, får portadministratoren en opgave om at give adgang til næste år.',
 				),
 			),
@@ -365,22 +374,25 @@ class Tools_Pages {
 				'title' => 'Portadministrator',
 				'mine'  => current_user_can( Roles::CAP_GATE ),
 				'steps' => array(
+					'Porten åbner, når et medlem ringer op fra sit mobilnummer. EasyAccess skal derfor kun kende navn, medlemsnummer, mobilnummer og årets gruppe.',
 					'Alt, der skal gøres i EasyAccess, står under <strong>Port</strong>. Tallet i menuen er antallet af åbne opgaver.',
 					'<strong>Nye brugere:</strong> Download importfilen, importér den i EasyAccess, og tryk <em>Markér alle som oprettet</em>.',
 					'<strong>Tilføj til gruppe, Ret bruger, Slet bruger:</strong> Gør det i EasyAccess, og tryk <em>Udført</em>. Sletning kan ikke fortrydes i EasyAccess.',
 					'Hver marts kommer en e-mail om at oprette næste års brugergruppe med navn og datoer. Adgang gives kun gennem gruppen, så den, der ikke betaler, mister adgangen af sig selv, når gruppen udløber.',
 					'Første gang: eksportér brugerne fra EasyAccess som XML, og upload filen under <strong>Afstem med EasyAccess</strong>. Skriv medlemsnummeret ind i ID-feltet for dem, der står på listen.',
-					'Ny brik: registrér den på medlemmets side. Opgaven om at skifte brik kommer straks, og kassereren ser, at der skal opkræves for brikken.',
+					'Skifter et medlem mobilnummer, kommer der en opgave om at rette det. Ellers kan de ikke komme ind.',
 				),
 			),
 			array(
 				'title' => 'Administrator',
 				'mine'  => current_user_can( Roles::CAP_ADMIN ),
 				'steps' => array(
-					'Giv folk en rolle under <em>Brugere</em> i WordPress: Værkstedskontakt, Kasserer eller Portadministrator. Én person kan have flere roller.',
+					'Nye i bestyrelsen eller nye værkstedskontakter: åbn personen under <strong>Medlemmer</strong>, og brug <em>Login og roller</em> nederst. Opret en WordPress-bruger, og sæt flueben ved rollen (Værkstedskontakt, Kasserer, Portadministrator). De får selv en e-mail om at vælge adgangskode. Fjern rollen hos den, der stopper.',
+					'Medlemmer og WordPress-brugere med samme e-mail bliver koblet automatisk. På en brugers profil kan en bruger, der ikke er medlem, oprettes som medlem.',
 					'Vælg kontakten for hvert værksted under <strong>Værksteder</strong>.',
 					'Beløb, datoer, gruppenavn, sletning og e-mailtekster ligger under <strong>Indstillinger</strong>.',
 					'Sæt tilmeldingsformularen ind på en side med kortkoden <code>[vhus_tilmelding]</code>.',
+					'Eksisterende medlemmer, der ikke var på Excel-listen: <em>Tilføj medlem</em>, vælg værksted og <em>Godkendt</em>, og sæt flueben ved det, de allerede har (betalt, adgang til porten, nøgle).',
 					'Dinero-nøglerne skal stå i <code>wp-config.php</code>; se <strong>Dinero</strong> for præcis hvilke.',
 					'<strong>Persondata</strong> viser, hvem der snart slettes automatisk. <strong>Log</strong> viser, hvem der har set eller ændret hvad.',
 				),

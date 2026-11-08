@@ -191,6 +191,70 @@ class Flow {
 		return true;
 	}
 
+	/**
+	 * Register a payment made outside Dinero (paid before the system existed, cash, MobilePay...).
+	 * Marked as manual with who did it, logged, and can be undone; Dinero payments cannot.
+	 *
+	 * @param array $args year (label), fee_type (full|half), amount_fee, amount_key, paid_on (Y-m-d),
+	 *                    note, gate (true: queue the EasyAccess task as for a Dinero payment;
+	 *                    false: the member already has gate access for that year).
+	 * @return int Period id, or 0 if that year is already paid.
+	 */
+	public static function mark_paid_manual( int $member_id, array $args ): int {
+		global $wpdb;
+		$year     = (string) ( $args['year'] ?? Util::year_label() );
+		$fee_type = 'half' === ( $args['fee_type'] ?? 'full' ) ? 'half' : 'full';
+		$amounts  = array(
+			'amount_fee' => absint( $args['amount_fee'] ?? Settings::get( 'half' === $fee_type ? 'fee_half' : 'fee_full' ) ),
+			'amount_key' => absint( $args['amount_key'] ?? 0 ),
+		);
+		$id     = Members::ensure_period( $member_id, $year, $fee_type, 'pending', $amounts );
+		$period = Members::period( $id );
+		if ( 'paid' === $period->status ) {
+			return 0;
+		}
+		$paid_on = preg_match( '/^\d{4}-\d{2}-\d{2}$/', (string) ( $args['paid_on'] ?? '' ) ) ? $args['paid_on'] : current_datetime()->format( 'Y-m-d' );
+		$wpdb->update(
+			DB::t( 'periods' ),
+			$amounts + array(
+				'fee_type'  => $fee_type,
+				'status'    => 'paid',
+				'paid_at'   => $paid_on . ' 00:00:00',
+				'paid_by'   => get_current_user_id(),
+				'paid_note' => mb_substr( sanitize_text_field( (string) ( $args['note'] ?? '' ) ), 0, 190 ),
+			),
+			array( 'id' => $id )
+		);
+		Log::add( 'period_paid_manual', 'member', $member_id, array( 'period' => $id, 'year' => $year, 'gate' => ! empty( $args['gate'] ) ) );
+		if ( ! empty( $args['gate'] ) ) {
+			do_action( 'vhus_period_paid', $id, $member_id );
+		} else {
+			Gate::set_linked( $member_id, true );
+		}
+		return $id;
+	}
+
+	/** Undo a manual payment (only manual ones). Gate tasks it created stay on the Port list. */
+	public static function undo_manual_paid( int $period_id ): bool {
+		global $wpdb;
+		$p = Members::period( $period_id );
+		if ( ! $p || 'paid' !== $p->status || empty( $p->paid_by ) ) {
+			return false;
+		}
+		$wpdb->update(
+			DB::t( 'periods' ),
+			array(
+				'status'    => $p->invoiced_at ? 'invoiced' : 'pending',
+				'paid_at'   => null,
+				'paid_by'   => null,
+				'paid_note' => null,
+			),
+			array( 'id' => $period_id )
+		);
+		Log::add( 'period_paid_manual_undo', 'member', (int) $p->member_id, array( 'period' => $period_id ) );
+		return true;
+	}
+
 	/** Cashier: the invoice is created in Dinero. */
 	public static function mark_invoiced( int $period_id ): bool {
 		return self::set_period_status( $period_id, 'pending', 'invoiced' );
@@ -225,11 +289,11 @@ class Flow {
 		return (int) $period->amount_fee + (int) $period->amount_key;
 	}
 
-	/** "kontingent 1.000 kr + nøglebrik 200 kr". */
+	/** "kontingent 1.000 kr + nøgle 200 kr". */
 	public static function specification( object $period ): string {
 		$parts = array( sprintf( '%s %s kr', 'half' === $period->fee_type ? 'halvt kontingent' : 'kontingent', Mailer::kr( (int) $period->amount_fee ) ) );
 		if ( (int) $period->amount_key > 0 ) {
-			$parts[] = sprintf( 'nøglebrik %s kr', Mailer::kr( (int) $period->amount_key ) );
+			$parts[] = sprintf( 'nøgle %s kr', Mailer::kr( (int) $period->amount_key ) );
 		}
 		return implode( ' + ', $parts );
 	}

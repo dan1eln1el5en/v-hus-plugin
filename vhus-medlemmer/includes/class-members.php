@@ -117,6 +117,12 @@ class Members {
 		if ( $log ) {
 			Log::add( 'member_create', 'member', $id );
 		}
+		/**
+		 * A member was created.
+		 *
+		 * @param int $id Member id.
+		 */
+		do_action( 'vhus_member_created', $id );
 		return $id;
 	}
 
@@ -315,52 +321,87 @@ class Members {
 	}
 
 	/**
-	 * Keys/fobs, newest first.
+	 * Workshop keys, newest first, with workshop name. (Keys are physical workshop keys;
+	 * the gate itself opens by phone. The number column is still called fob_number.)
 	 *
 	 * @return object[]
 	 */
 	public static function keys( int $member_id ): array {
 		global $wpdb;
-		return $wpdb->get_results( $wpdb->prepare( 'SELECT * FROM ' . DB::t( 'keys' ) . ' WHERE member_id = %d ORDER BY id DESC', $member_id ) );
-	}
-
-	/** The member's current fob number ('' if none). */
-	public static function current_fob( int $member_id ): string {
-		global $wpdb;
-		return (string) $wpdb->get_var( $wpdb->prepare( 'SELECT fob_number FROM ' . DB::t( 'keys' ) . ' WHERE member_id = %d AND returned_at IS NULL ORDER BY id DESC LIMIT 1', $member_id ) );
-	}
-
-	/** Register a new fob. Replacements are new rows; the previous open one is marked returned. */
-	public static function add_key( int $member_id, string $fob_number ): void {
-		global $wpdb;
-		$fob = sanitize_text_field( $fob_number );
-		if ( '' === $fob ) {
-			return;
-		}
-		$now      = Util::now();
-		$previous = (string) $wpdb->get_var( $wpdb->prepare( 'SELECT fob_number FROM ' . DB::t( 'keys' ) . ' WHERE member_id = %d AND returned_at IS NULL ORDER BY id DESC LIMIT 1', $member_id ) );
-		$wpdb->query(
-			$wpdb->prepare( 'UPDATE ' . DB::t( 'keys' ) . ' SET returned_at = %s WHERE member_id = %d AND returned_at IS NULL', $now, $member_id )
+		return $wpdb->get_results(
+			$wpdb->prepare(
+				'SELECT k.*, w.name AS workshop_name FROM ' . DB::t( 'keys' ) . ' k LEFT JOIN ' . DB::t( 'workshops' ) . ' w ON w.id = k.workshop_id WHERE k.member_id = %d ORDER BY k.id DESC',
+				$member_id
+			)
 		);
+	}
+
+	/** One key row. */
+	public static function key( int $key_id ): ?object {
+		global $wpdb;
+		return $wpdb->get_row( $wpdb->prepare( 'SELECT * FROM ' . DB::t( 'keys' ) . ' WHERE id = %d', $key_id ) );
+	}
+
+	/**
+	 * Suggested payment for a key about to be handed out:
+	 * 'joining' when the member's joining invoice already includes the key fee and this is their first key,
+	 * 'due' otherwise (a replacement or an extra key). People can override it in the form.
+	 */
+	public static function suggested_key_payment( int $member_id ): string {
+		global $wpdb;
+		$keys    = (int) $wpdb->get_var( $wpdb->prepare( 'SELECT COUNT(*) FROM ' . DB::t( 'keys' ) . ' WHERE member_id = %d', $member_id ) );
+		$covered = (int) $wpdb->get_var( $wpdb->prepare( 'SELECT COUNT(*) FROM ' . DB::t( 'periods' ) . ' WHERE member_id = %d AND amount_key > 0', $member_id ) );
+		return ( 0 === $keys && $covered > 0 ) ? 'joining' : 'due';
+	}
+
+	/**
+	 * Record a workshop key handed out. A new key for a workshop where the member already
+	 * holds one replaces it (the old one is marked returned/replaced).
+	 *
+	 * @param string $payment joining (in the joining invoice), due (cashier invoices the key fee), none.
+	 * @return int Key row id.
+	 */
+	public static function add_key( int $member_id, ?int $workshop_id, string $number = '', string $payment = 'due' ): int {
+		global $wpdb;
+		$now   = Util::now();
+		$table = DB::t( 'keys' );
+		if ( $workshop_id ) {
+			$wpdb->query( $wpdb->prepare( "UPDATE $table SET returned_at = %s WHERE member_id = %d AND workshop_id = %d AND returned_at IS NULL", $now, $member_id, $workshop_id ) );
+		}
 		$wpdb->insert(
-			DB::t( 'keys' ),
+			$table,
 			array(
-				'member_id' => $member_id,
-				'fob_number' => $fob,
-				'issued_at' => $now,
+				'member_id'   => $member_id,
+				'workshop_id' => $workshop_id ? $workshop_id : null,
+				'fob_number'  => sanitize_text_field( $number ),
+				'issued_at'   => $now,
+				'fee_due'     => 'due' === $payment ? 1 : 0,
+				'fee_paid_at' => 'none' === $payment ? $now : null,
 			)
 		);
 		$key_id = (int) $wpdb->insert_id;
-		Log::add( 'key_issue', 'member', $member_id, array( 'key' => $key_id ) );
+		Log::add( 'key_issue', 'member', $member_id, array( 'key' => $key_id, 'workshop' => (int) $workshop_id, 'payment' => $payment ) );
 		/**
-		 * A fob was registered for a member.
+		 * A workshop key was handed out.
 		 *
 		 * @param int    $member_id Member id.
 		 * @param int    $key_id    Key row id.
-		 * @param string $fob       New fob number.
-		 * @param string $previous  Previous open fob number, '' if none.
+		 * @param string $payment   joining|due|none.
 		 */
-		do_action( 'vhus_key_issued', $member_id, $key_id, $fob, $previous );
+		do_action( 'vhus_key_issued', $member_id, $key_id, $payment );
+		return $key_id;
+	}
+
+	/** Mark a key as handed back. */
+	public static function return_key( int $key_id ): bool {
+		global $wpdb;
+		$k = self::key( $key_id );
+		if ( ! $k || $k->returned_at ) {
+			return false;
+		}
+		$wpdb->update( DB::t( 'keys' ), array( 'returned_at' => Util::now() ), array( 'id' => $key_id ) );
+		Log::add( 'key_return', 'member', (int) $k->member_id, array( 'key' => $key_id ) );
+		return true;
 	}
 
 	/**
@@ -385,7 +426,7 @@ class Members {
 	 * Members for list screens, filtered in PHP (the association has under a few hundred members).
 	 *
 	 * @param array $args search, workshop_id, status, orderby, order.
-	 * @return array[] Rows with member fields plus workshops, status, period_status, fob.
+	 * @return array[] Rows with member fields plus workshops, status, period_status.
 	 */
 	public static function query( array $args = array() ): array {
 		global $wpdb;
@@ -397,14 +438,12 @@ class Members {
 		$members = $wpdb->get_results( 'SELECT * FROM ' . DB::t( 'members' ), ARRAY_A );
 		$seats   = $wpdb->get_results( 'SELECT s.member_id, s.workshop_id, s.status, w.name FROM ' . DB::t( 'seats' ) . ' s JOIN ' . DB::t( 'workshops' ) . ' w ON w.id = s.workshop_id ORDER BY w.sort_order', ARRAY_A );
 		$periods = $wpdb->get_results( $wpdb->prepare( 'SELECT member_id, status FROM ' . DB::t( 'periods' ) . ' WHERE year_label = %s', Util::year_label() ), ARRAY_A );
-		$keys    = $wpdb->get_results( 'SELECT member_id, fob_number FROM ' . DB::t( 'keys' ) . ' WHERE returned_at IS NULL', ARRAY_A );
 
 		$by_member = array();
 		foreach ( $seats as $s ) {
 			$by_member[ $s['member_id'] ][] = $s;
 		}
 		$period_by = array_column( $periods, 'status', 'member_id' );
-		$fob_by    = array_column( $keys, 'fob_number', 'member_id' );
 
 		$search = mb_strtolower( trim( (string) ( $args['search'] ?? '' ) ) );
 		$ws     = (int) ( $args['workshop_id'] ?? 0 );
@@ -428,7 +467,7 @@ class Members {
 				continue;
 			}
 			if ( $search ) {
-				$hay = mb_strtolower( $m['name'] . ' ' . $m['email'] . ' ' . $m['phone_e164'] . ' ' . ( $fob_by[ $m['id'] ] ?? '' ) );
+				$hay = mb_strtolower( $m['name'] . ' ' . $m['email'] . ' ' . $m['phone_e164'] );
 				if ( ! str_contains( $hay, $search ) ) {
 					continue;
 				}
@@ -440,7 +479,6 @@ class Members {
 					$open
 				)
 			);
-			$m['fob']       = $fob_by[ $m['id'] ] ?? '';
 			$rows[]         = $m;
 		}
 

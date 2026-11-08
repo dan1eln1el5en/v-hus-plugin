@@ -74,10 +74,9 @@ class Gate_Page {
 			case 'add_to_group':
 				return 'Tilføj til gruppen ' . ( $d['group'] ?? '' );
 			case 'update':
-				$what = 'phone' === ( $d['field'] ?? '' ) ? 'telefonnummer' : 'nøglebrik';
-				return sprintf( 'Skift %s fra %s til %s', $what, '' !== ( $d['old'] ?? '' ) ? $d['old'] : '(intet)', $d['new'] ?? '' );
+				return sprintf( 'Skift telefonnummer fra %s til %s', '' !== ( $d['old'] ?? '' ) ? $d['old'] : '(intet)', $d['new'] ?? '' );
 			case 'remove':
-				return 'Slet brugeren (telefon ' . ( $d['phone'] ?? '' ) . ( ! empty( $d['fob'] ) ? ', brik ' . $d['fob'] : '' ) . '). Kan ikke fortrydes i EasyAccess.' . ( ! empty( $d['note'] ) ? ' ' . $d['note'] : '' );
+				return 'Slet brugeren (telefon ' . ( $d['phone'] ?? '' ) . '). Kan ikke fortrydes i EasyAccess.' . ( ! empty( $d['note'] ) ? ' ' . $d['note'] : '' );
 		}
 		return '';
 	}
@@ -121,7 +120,7 @@ class Gate_Page {
 			<?php else : ?>
 				<p>Download importfilen, importér den i EasyAccess (Brugere → Importér), og markér dem som udført bagefter.</p>
 				<table class="widefat striped">
-					<thead><tr><th>Navn</th><th>ID</th><th>Telefon</th><th>Brik</th><th>Gruppe</th><th>Siden</th></tr></thead>
+					<thead><tr><th>Navn</th><th>ID</th><th>Telefon</th><th>Gruppe</th><th>Siden</th></tr></thead>
 					<tbody>
 					<?php foreach ( $adds as $a ) : ?>
 						<?php $m = \VHus\Members::get( (int) $a->member_id ); ?>
@@ -129,7 +128,6 @@ class Gate_Page {
 							<td><?php echo esc_html( $a->name ); ?></td>
 							<td><code><?php echo (int) $a->member_id; ?></code></td>
 							<td><?php echo esc_html( $m ? $m->phone_e164 : '' ); ?></td>
-							<td><?php echo esc_html( \VHus\Members::current_fob( (int) $a->member_id ) ? \VHus\Members::current_fob( (int) $a->member_id ) : '—' ); ?></td>
 							<td><?php echo esc_html( (string) ( $a->data['group'] ?? '' ) ); ?></td>
 							<td><?php echo esc_html( mysql2date( 'j. M', $a->created_at ) ); ?></td>
 						</tr>
@@ -244,7 +242,7 @@ class Gate_Page {
 		<?php endif; ?>
 		<?php if ( $r['unknown'] ) : ?>
 			<h4>I EasyAccess, men ikke medlem her</h4>
-			<p>Kan være bestyrelse, nøglebærere eller tidligere medlemmer. Tjek om de skal slettes i EasyAccess, eller om telefonnummeret er forkert her.</p>
+			<p>Kan være bestyrelse, håndværkere eller tidligere medlemmer. Tjek om de skal slettes i EasyAccess, eller om telefonnummeret er forkert her.</p>
 			<table class="widefat striped vhus-narrow">
 				<thead><tr><th>Navn</th><th>Telefon</th><th>ID</th></tr></thead>
 				<tbody>

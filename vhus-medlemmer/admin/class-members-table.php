@@ -41,7 +41,7 @@ class Members_Table extends \WP_List_Table {
 			'status'    => 'Status',
 			'email'     => 'E-mail',
 			'phone'     => 'Telefon',
-			'fob'       => 'Brik',
+			'roles'     => 'Rolle',
 		);
 	}
 
@@ -98,6 +98,13 @@ class Members_Table extends \WP_List_Table {
 	protected function column_status( $item ) {
 		$label = Members::MEMBER_STATUSES[ $item['status'] ] ?? $item['status'];
 		return sprintf( '<span class="vhus-badge vhus-status-%s">%s</span>', esc_attr( $item['status'] ), esc_html( $label ) );
+	}
+
+	/** Board roles of the linked WordPress user. */
+	protected function column_roles( $item ) {
+		$u = ! empty( $item['wp_user_id'] ) ? get_userdata( (int) $item['wp_user_id'] ) : null;
+		$l = \VHus\Users::role_labels( $u ? $u : null );
+		return $l ? esc_html( implode( ', ', $l ) ) : ( $u ? '<span class="vhus-muted">Login</span>' : '<span aria-hidden="true">—</span>' );
 	}
 
 	/** Phone. */

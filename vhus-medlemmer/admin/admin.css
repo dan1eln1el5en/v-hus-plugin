@@ -40,3 +40,10 @@
 .vhus-help summary h2 { display: inline-block; margin: 12px 0; }
 .vhus-help ol { max-width: 680px; }
 .vhus-help li { margin-bottom: 6px; }
+.vhus .vhus-keynr { width: 10em; }
+.vhus-pay { margin: 10px 0; }
+.vhus-pay summary { cursor: pointer; color: #2271b1; }
+.vhus .vhus-compact th { padding: 8px 10px 8px 0; width: 120px; }
+.vhus .vhus-compact td { padding: 6px 10px; }
+.vhus-check-inline { margin-left: 10px; }
+.vhus-inline-block { display: inline; }

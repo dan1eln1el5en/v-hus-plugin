@@ -263,21 +263,21 @@ class Queues {
 			<?php
 			global $wpdb;
 			$keys = $wpdb->get_results(
-				'SELECT k.*, m.name, m.email FROM ' . \VHus\DB::t( 'keys' ) . ' k JOIN ' . \VHus\DB::t( 'members' ) . ' m ON m.id = k.member_id
+				'SELECT k.*, m.name, m.email, w.name AS workshop_name FROM ' . \VHus\DB::t( 'keys' ) . ' k JOIN ' . \VHus\DB::t( 'members' ) . ' m ON m.id = k.member_id LEFT JOIN ' . \VHus\DB::t( 'workshops' ) . ' w ON w.id = k.workshop_id
 				WHERE k.fee_due = 1 AND k.fee_paid_at IS NULL ORDER BY k.issued_at'
 			);
 			if ( $keys ) :
 				?>
-				<h2>Nye nøglebrikker, der skal faktureres</h2>
-				<p>Erstatningsbrikker koster <?php echo esc_html( Mailer::kr( (int) \VHus\Settings::get( 'fee_key' ) ) ); ?> kr. De forsvinder fra listen, når Dinero viser fakturaen betalt.</p>
+				<h2>Værkstedsnøgler, der skal faktureres</h2>
+				<p>Nye og erstatningsnøgler koster <?php echo esc_html( Mailer::kr( (int) \VHus\Settings::get( 'fee_key' ) ) ); ?> kr. De forsvinder fra listen, når Dinero viser fakturaen betalt.</p>
 				<table class="widefat striped vhus-narrow">
-					<thead><tr><th>Navn</th><th>E-mail</th><th>Brik</th><th>Udleveret</th></tr></thead>
+					<thead><tr><th>Navn</th><th>E-mail</th><th>Værksted</th><th>Udleveret</th></tr></thead>
 					<tbody>
 					<?php foreach ( $keys as $k ) : ?>
 						<tr>
 							<td><a href="<?php echo esc_url( admin_url( 'admin.php?page=vhus-members&action=edit&id=' . (int) $k->member_id ) ); ?>"><?php echo esc_html( $k->name ); ?></a></td>
 							<td><?php echo esc_html( $k->email ); ?></td>
-							<td><?php echo esc_html( $k->fob_number ); ?></td>
+							<td><?php echo esc_html( (string) $k->workshop_name . ( '' !== $k->fob_number ? ' (nr. ' . $k->fob_number . ')' : '' ) ); ?></td>
 							<td><?php echo esc_html( mysql2date( 'j. M Y', (string) $k->issued_at ) ); ?></td>
 						</tr>
 					<?php endforeach; ?>

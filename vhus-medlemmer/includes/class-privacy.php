@@ -129,7 +129,6 @@ class Privacy {
 					array(
 						'name'  => $m->name,
 						'phone' => $m->phone_e164,
-						'fob'   => Members::current_fob( $member_id ),
 						'note'  => 'Medlemmets data er slettet her.',
 					)
 				);
@@ -240,10 +239,11 @@ class Privacy {
 		foreach ( Members::keys( (int) $m->id ) as $k ) {
 			$items[] = array(
 				'group_id'    => 'vhus-keys',
-				'group_label' => 'V-huset: nøglebrikker',
+				'group_label' => 'V-huset: værkstedsnøgler',
 				'item_id'     => 'vhus-key-' . $k->id,
 				'data'        => array(
-					$pair( 'Briknummer', $k->fob_number ),
+					$pair( 'Værksted', (string) $k->workshop_name ),
+					$pair( 'Nøglenummer', $k->fob_number ),
 					$pair( 'Udleveret', (string) $k->issued_at ),
 					$pair( 'Afleveret', (string) $k->returned_at ),
 				),
@@ -275,9 +275,9 @@ class Privacy {
 		$s    = Settings::all();
 		$text = '<h2>Medlemskab og venteliste</h2>'
 			. '<p>Når du skriver dig op til et værksted, gemmer Værkstedshuset i Hannovergade dit navn, din e-mail, dit mobilnummer og eventuelt din adresse, hvilke værksteder du står på venteliste til, og hvornår du skrev dig op. Formålet er at administrere ventelister, medlemskab, kontingent og adgang til huset. Grundlaget er dit samtykke og medlemsforholdet.</p>'
-			. '<p>Er du medlem, gemmer vi desuden dine værksteder, om dit kontingent er betalt, og nummeret på din nøglebrik. Vi gemmer ikke CPR-nummer, bankoplysninger eller fakturabeløb.</p>'
+			. '<p>Er du medlem, gemmer vi desuden dine værksteder, om dit kontingent er betalt, og hvilke værkstedsnøgler du har fået udleveret. Vi gemmer ikke CPR-nummer, bankoplysninger eller fakturabeløb.</p>'
 			. '<p>Værkstedskontakten for dit værksted kan se dine oplysninger. Kassereren og portadministratoren kan se alle medlemmer. Alle visninger og ændringer bliver logget.</p>'
-			. '<p>Vi bruger disse databehandlere: webhotellet, Dinero (Visma) til fakturering og Access Technology (EasyAccess) til adgang til porten, hvor dit navn, mobilnummer og nøglebrik ligger.</p>'
+			. '<p>Vi bruger disse databehandlere: webhotellet, Dinero (Visma) til fakturering og Access Technology (EasyAccess) til adgang til porten, hvor dit navn og mobilnummer ligger, så du kan ringe porten op.</p>'
 			. sprintf( '<p>Bliver du afvist, sletter vi dine oplysninger efter %d måneder. Melder du dig ud, sletter vi dem %d måneder efter udmeldelsen. Du kan altid bede om at se eller få slettet dine oplysninger ved at skrive til bestyrelsen.</p>', (int) $s['retention_declined'], (int) $s['retention_former'] );
 		wp_add_privacy_policy_content( 'V-huset Medlemmer', wp_kses_post( $text ) );
 	}

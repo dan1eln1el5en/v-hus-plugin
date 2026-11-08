@@ -16,9 +16,11 @@ defined( 'ABSPATH' ) || exit;
  * |----------------------------------------------|---------------|
  * | Paid, member not yet in EasyAccess           | add           |
  * | Paid, member already in EasyAccess           | add_to_group  |
- * | New fob or new phone, member in EasyAccess   | update        |
+ * | New phone, member in EasyAccess               | update        |
  * | Last approved seat ends, member in EasyAccess | remove       |
  *
+ * The gate opens when a member calls it from their registered mobile number, so the phone
+ * number is the only thing EasyAccess needs; workshop keys are handled outside EasyAccess.
  * Access is only ever given through the yearly group, so an unpaid member drops out
  * when the group's end date passes and needs no action.
  */
@@ -36,7 +38,6 @@ class Gate {
 	/** Hooks. */
 	public static function init(): void {
 		add_action( 'vhus_period_paid', array( __CLASS__, 'on_period_paid' ), 10, 2 );
-		add_action( 'vhus_key_issued', array( __CLASS__, 'on_key_issued' ), 10, 4 );
 		add_action( 'vhus_member_updated', array( __CLASS__, 'on_member_updated' ), 10, 3 );
 		add_action( 'vhus_seat_status', array( __CLASS__, 'on_seat_status' ), 10, 4 );
 		add_action( self::DAILY_HOOK, array( __CLASS__, 'daily' ) );
@@ -216,28 +217,6 @@ class Gate {
 	}
 
 	/**
-	 * A fob was registered. For someone already in EasyAccess this is a replacement:
-	 * the new fob is queued at once (the old one may be lost) and the key fee is due.
-	 * For a new member the fob goes into their "add" row instead.
-	 */
-	public static function on_key_issued( int $member_id, int $key_id, string $fob, string $previous ): void {
-		global $wpdb;
-		if ( ! self::in_easyaccess( $member_id ) ) {
-			return;
-		}
-		$wpdb->update( DB::t( 'keys' ), array( 'fee_due' => 1 ), array( 'id' => $key_id ) );
-		self::queue(
-			$member_id,
-			'update',
-			array(
-				'field' => 'fob',
-				'old'   => $previous,
-				'new'   => $fob,
-			)
-		);
-	}
-
-	/**
 	 * Member details changed: a new phone number must be changed in EasyAccess (it opens the gate).
 	 *
 	 * @param string[] $changed Changed fields.
@@ -280,7 +259,6 @@ class Gate {
 			array(
 				'name'  => $m->name,
 				'phone' => $m->phone_e164,
-				'fob'   => Members::current_fob( $member_id ),
 				'note'  => $open_add ? 'Har også en åben "Opret bruger". Er brugeren ikke oprettet endnu, så markér begge som udført.' : '',
 			)
 		);
@@ -314,7 +292,7 @@ class Gate {
 				$m->name,
 				(string) $m->id,
 				'',
-				Members::current_fob( (int) $m->id ),
+				'', // Nøglekort/Brik: not used; the gate opens by phone.
 				$m->phone_e164,
 				(string) ( $a->data['group'] ?? Util::group_name( Util::year_label() ) ),
 			);

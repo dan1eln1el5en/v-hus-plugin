@@ -185,7 +185,7 @@ class Dinero_Page {
 				$current[ strtolower( $g ) ] = $kind;
 			}
 		}
-		$fallback = sprintf( '%s kr = helt kontingent, %s kr = halvt, %s kr = nøglebrik', Mailer::kr( (int) $s['fee_full'] ), Mailer::kr( (int) $s['fee_half'] ), Mailer::kr( (int) $s['fee_key'] ) );
+		$fallback = sprintf( '%s kr = helt kontingent, %s kr = halvt, %s kr = værkstedsnøgle', Mailer::kr( (int) $s['fee_full'] ), Mailer::kr( (int) $s['fee_half'] ), Mailer::kr( (int) $s['fee_key'] ) );
 		if ( ! $current ) {
 			echo '<p>Ingen varer er valgt, så fakturalinjer genkendes på beløbet: ' . esc_html( $fallback ) . '. Det er mere sikkert at vælge de varer, kassereren bruger.</p>';
 		} else {
@@ -201,7 +201,7 @@ class Dinero_Page {
 			''     => '—',
 			'full' => 'Kontingent, helt år',
 			'half' => 'Kontingent, halvt år',
-			'key'  => 'Nøglebrik',
+			'key'  => 'Værkstedsnøgle',
 		);
 		?>
 		<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">

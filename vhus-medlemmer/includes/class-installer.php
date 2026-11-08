@@ -61,13 +61,17 @@ class Installer {
 	private static function migrate( $from ): void {
 		global $wpdb;
 		if ( $from && (int) $from < 4 ) {
-			// v4: members imported from Excel are already in EasyAccess.
+			// v4: members imported from Excel are already in EasyAccess. (Runs with v7 below for older installs.)
 			$wpdb->query(
 				$wpdb->prepare(
 					'UPDATE ' . DB::t( 'members' ) . ' SET easyaccess_linked_at = %s WHERE easyaccess_linked_at IS NULL AND id IN ( SELECT member_id FROM ' . DB::t( 'seats' ) . " WHERE note = 'Importeret fra Excel' )",
 					Util::now()
 				)
 			);
+		}
+		if ( $from && (int) $from < 7 ) {
+			// v7: link existing members and WordPress users that share an e-mail.
+			Users::link_all_by_email();
 		}
 	}
 

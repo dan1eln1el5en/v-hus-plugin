@@ -8,6 +8,7 @@
 namespace VHus\Admin;
 
 use VHus\Flow;
+use VHus\Gate;
 use VHus\Importer;
 use VHus\Log;
 use VHus\Members;
@@ -31,7 +32,7 @@ class Admin {
 		add_action( 'admin_enqueue_scripts', array( __CLASS__, 'assets' ) );
 		add_filter( 'option_page_capability_vhus_settings', fn() => Roles::CAP_ADMIN );
 
-		foreach ( array( 'save_member', 'seat_action', 'add_seat', 'add_key', 'save_workshops', 'import_preview', 'import_commit' ) as $a ) {
+		foreach ( array( 'save_member', 'seat_action', 'add_seat', 'add_key', 'return_key', 'mark_paid', 'undo_paid', 'save_workshops', 'import_preview', 'import_commit' ) as $a ) {
 			add_action( 'admin_post_vhus_' . $a, array( __CLASS__, 'handle_' . $a ) );
 		}
 	}
@@ -269,6 +270,7 @@ class Admin {
 		$v        = fn( string $f ) => $m ? (string) $m->$f : '';
 		$disabled = $can_edit ? '' : ' disabled';
 		$own_ws   = current_user_can( Roles::CAP_MANAGE_ALL ) ? null : Workshops::ids_for_contact( get_current_user_id() );
+		$can_pay  = current_user_can( Roles::CAP_INVOICE );
 		?>
 		<div class="wrap vhus">
 			<h1><?php echo $m ? esc_html( $m->name ) : 'Nyt medlem'; ?></h1>
@@ -313,10 +315,23 @@ class Admin {
 										<option value="<?php echo (int) $w->id; ?>"><?php echo esc_html( $w->name ); ?></option>
 									<?php endforeach; ?>
 								</select>
-								<select name="seat_status">
+								<select name="seat_status" id="vhus-seat-status" onchange="document.getElementById('vhus-existing').hidden = this.value !== 'approved'">
 									<option value="waiting">På venteliste</option>
 									<option value="approved">Godkendt</option>
 								</select>
+							</td>
+						</tr>
+						<tr id="vhus-existing" hidden>
+							<th scope="row">Eksisterende medlem</th>
+							<td>
+								<label><input type="checkbox" name="existing_paid" value="1"> Har betalt kontingent for <?php echo esc_html( Util::year_label() ); ?></label>
+								<select name="existing_fee_type" aria-label="Kontingent">
+									<option value="full">helt år</option>
+									<option value="half">halvt år</option>
+								</select><br>
+								<label><input type="checkbox" name="existing_gate" value="1" checked> Har allerede adgang til porten</label><br>
+								<label><input type="checkbox" name="existing_key" value="1" checked> Har allerede nøgle til værkstedet</label>
+								<p class="description">Til medlemmer fra før systemet. Betalingen bliver registreret som manuel, og der kommer hverken faktura, portopgave eller nøglebetaling.</p>
 							</td>
 						</tr>
 					<?php endif; ?>
@@ -408,48 +423,162 @@ class Admin {
 							<td><?php echo esc_html( $p->year_label ); ?></td>
 							<td><?php echo (int) $p->amount_fee + (int) $p->amount_key > 0 ? esc_html( Flow::specification( $p ) ) : ( 'half' === $p->fee_type ? 'Halvt år' : 'Helt år' ); ?></td>
 							<td><?php echo esc_html( Members::PERIOD_STATUSES[ $p->status ] ?? $p->status ); ?></td>
-							<td><?php echo self::date( $p->paid_at ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?></td>
+							<td>
+								<?php echo self::date( $p->paid_at ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
+								<?php if ( 'paid' === $p->status && $p->paid_by ) : ?>
+									<?php $by = get_userdata( (int) $p->paid_by ); ?>
+									<br><span class="vhus-muted">Registreret manuelt<?php echo $by ? ' af ' . esc_html( $by->display_name ) : ''; ?><?php echo $p->paid_note ? ': ' . esc_html( $p->paid_note ) : ''; ?></span>
+									<?php if ( $can_pay ) : ?>
+										<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="vhus-inline-block">
+											<input type="hidden" name="action" value="vhus_undo_paid">
+											<input type="hidden" name="period_id" value="<?php echo (int) $p->id; ?>">
+											<?php wp_nonce_field( 'vhus_undo_paid_' . (int) $p->id ); ?>
+											<button class="button-link" onclick="return confirm('Fortryd den manuelle betaling?')">Fortryd</button>
+										</form>
+									<?php endif; ?>
+								<?php elseif ( 'paid' === $p->status && $p->dinero_invoice_guid ) : ?>
+									<br><span class="vhus-muted">Fra Dinero</span>
+								<?php endif; ?>
+							</td>
 						</tr>
 					<?php endforeach; ?>
 					</tbody>
 				</table>
-				<p class="description"><?php echo $m->dinero_contact_guid ? 'Koblet til Dinero.' : 'Ikke koblet til en Dinero-kontakt endnu.'; ?> Betalingsstatus kommer fra Dinero og kan ikke ændres her. Ændringer af værkstedsstatus her sender ingen e-mails; brug Ventelister for det.</p>
+				<?php
+				if ( $can_pay ) :
+					$cur_year = Util::year_label();
+					$start    = Util::membership_start_year();
+					$years    = array( sprintf( '%d/%02d', $start - 1, $start % 100 ), $cur_year, sprintf( '%d/%02d', $start + 1, ( $start + 2 ) % 100 ) );
+					$paid     = array_column( array_filter( $periods, fn( $p ) => 'paid' === $p->status ), 'year_label' );
+					$open     = array_values( array_diff( $years, $paid ) );
+					if ( $open ) :
+						?>
+						<details class="vhus-pay"<?php echo in_array( $cur_year, $open, true ) && ! $periods ? ' open' : ''; ?>>
+							<summary>Registrér betaling uden om Dinero</summary>
+							<p class="description">Til medlemmer, der har betalt før systemet, kontant eller på anden måde. Det bliver markeret som manuelt og logget.</p>
+							<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+								<input type="hidden" name="action" value="vhus_mark_paid">
+								<input type="hidden" name="member_id" value="<?php echo (int) $id; ?>">
+								<?php wp_nonce_field( 'vhus_mark_paid_' . $id ); ?>
+								<table class="form-table vhus-compact" role="presentation">
+									<tr><th scope="row"><label for="vhus-pay-year">Medlemsår</label></th><td>
+										<select id="vhus-pay-year" name="year">
+											<?php foreach ( $open as $y ) : ?>
+												<option value="<?php echo esc_attr( $y ); ?>"<?php selected( $y, $cur_year ); ?>><?php echo esc_html( $y ); ?></option>
+											<?php endforeach; ?>
+										</select>
+									</td></tr>
+									<tr><th scope="row"><label for="vhus-pay-type">Kontingent</label></th><td>
+										<select id="vhus-pay-type" name="fee_type" onchange="document.getElementById('vhus-pay-amount').value=this.selectedOptions[0].dataset.amount">
+											<option value="full" data-amount="<?php echo (int) Settings::get( 'fee_full' ); ?>">Helt år</option>
+											<option value="half" data-amount="<?php echo (int) Settings::get( 'fee_half' ); ?>">Halvt år</option>
+										</select>
+										<input id="vhus-pay-amount" type="number" min="0" name="amount_fee" value="<?php echo (int) Settings::get( 'fee_full' ); ?>" class="small-text" aria-label="Beløb i kr"> kr
+										<label class="vhus-check-inline"><input type="checkbox" name="with_key" value="1"> inkl. nøgle (<?php echo (int) Settings::get( 'fee_key' ); ?> kr)</label>
+									</td></tr>
+									<tr><th scope="row"><label for="vhus-pay-date">Betalt den</label></th><td><input id="vhus-pay-date" type="date" name="paid_on" value="<?php echo esc_attr( current_datetime()->format( 'Y-m-d' ) ); ?>"></td></tr>
+									<tr><th scope="row"><label for="vhus-pay-note">Note</label></th><td><input id="vhus-pay-note" type="text" name="note" class="regular-text" placeholder="Fx betalt i april 2026 via bankoverførsel"></td></tr>
+									<tr><th scope="row">Porten</th><td>
+										<label><input type="radio" name="gate" value="0"<?php checked( Gate::in_easyaccess( $id ) ); ?>> Har allerede adgang til porten for dette år</label><br>
+										<label><input type="radio" name="gate" value="1"<?php checked( ! Gate::in_easyaccess( $id ) ); ?>> Skal have adgang (opgave til portadministratoren)</label>
+									</td></tr>
+								</table>
+								<button class="button button-primary">Registrér betaling</button>
+							</form>
+						</details>
+					<?php endif; ?>
+				<?php endif; ?>
+				<p class="description"><?php echo $m->dinero_contact_guid ? 'Koblet til Dinero.' : 'Ikke koblet til en Dinero-kontakt endnu.'; ?> Betalinger kommer normalt fra Dinero. Ændringer af værkstedsstatus her sender ingen e-mails; brug Ventelister for det.</p>
 
-				<h2>Nøglebrik</h2>
+				<h2>Værkstedsnøgler</h2>
 				<table class="widefat striped">
-					<thead><tr><th>Nummer</th><th>Udleveret</th><th>Afleveret</th></tr></thead>
+					<thead><tr><th>Værksted</th><th>Nr.</th><th>Udleveret</th><th>Betaling</th><th>Afleveret / erstattet</th></tr></thead>
 					<tbody>
 					<?php
-					$keys = Members::keys( $id );
+					$keys      = Members::keys( $id );
+					$open_ws   = array_map( 'intval', Members::workshop_ids( $id ) );
 					if ( ! $keys ) {
-						echo '<tr><td colspan="3"><em>Ingen brik registreret.</em></td></tr>';
+						echo '<tr><td colspan="5"><em>Ingen nøgler registreret.</em></td></tr>';
 					}
 					foreach ( $keys as $k ) :
+						$key_editable = $k->workshop_id ? Roles::can_manage_workshop( (int) $k->workshop_id ) : current_user_can( Roles::CAP_MANAGE_ALL );
+						$should_back  = ! $k->returned_at && $k->workshop_id && ! in_array( (int) $k->workshop_id, $open_ws, true );
 						?>
-						<tr>
-							<td><?php echo esc_html( $k->fob_number ); ?></td>
+						<tr<?php echo $should_back ? ' class="vhus-old"' : ''; ?>>
+							<td><?php echo esc_html( $k->workshop_name ? $k->workshop_name : '—' ); ?></td>
+							<td><?php echo esc_html( '' !== $k->fob_number ? $k->fob_number : '—' ); ?></td>
 							<td><?php echo self::date( $k->issued_at ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?></td>
-							<td><?php echo self::date( $k->returned_at ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?></td>
+							<td>
+								<?php
+								if ( $k->fee_paid_at ) {
+									echo 'Betalt';
+								} elseif ( $k->fee_due ) {
+									echo 'Skal faktureres';
+								} else {
+									echo 'Med i indmeldelsen';
+								}
+								?>
+							</td>
+							<td>
+								<?php
+								$replaced = false;
+								foreach ( $keys as $other ) {
+									if ( $k->returned_at && (int) $other->id > (int) $k->id && (int) $other->workshop_id === (int) $k->workshop_id && $other->issued_at === $k->returned_at ) {
+										$replaced = true;
+									}
+								}
+								?>
+								<?php if ( $k->returned_at ) : ?>
+									<?php echo $replaced ? 'Erstattet ' : ''; ?><?php echo self::date( $k->returned_at ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
+								<?php elseif ( $key_editable ) : ?>
+									<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+										<input type="hidden" name="action" value="vhus_return_key">
+										<input type="hidden" name="key_id" value="<?php echo (int) $k->id; ?>">
+										<?php wp_nonce_field( 'vhus_return_key_' . (int) $k->id ); ?>
+										<?php if ( $should_back ) : ?><strong>Ikke afleveret</strong> <?php endif; ?>
+										<button class="button-link">Markér afleveret</button>
+									</form>
+								<?php else : ?>
+									<?php echo $should_back ? '<strong>Ikke afleveret</strong>' : '—'; ?>
+								<?php endif; ?>
+							</td>
 						</tr>
 					<?php endforeach; ?>
 					</tbody>
 				</table>
-				<?php if ( current_user_can( Roles::CAP_MANAGE_ALL ) || current_user_can( Roles::CAP_GATE ) ) : ?>
+				<?php
+				$key_ws = array_values( array_filter( Workshops::all(), fn( $w ) => in_array( (int) $w->id, $open_ws, true ) && Roles::can_manage_workshop( (int) $w->id ) ) );
+				if ( $key_ws ) :
+					$suggest = Members::suggested_key_payment( $id );
+					?>
 					<form class="vhus-inline vhus-add" method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
 						<input type="hidden" name="action" value="vhus_add_key">
 						<input type="hidden" name="member_id" value="<?php echo (int) $id; ?>">
 						<?php wp_nonce_field( 'vhus_add_key_' . $id ); ?>
-						<input type="text" name="fob_number" placeholder="Briknummer" aria-label="Briknummer" required>
-						<button class="button">Registrér brik</button>
+						<select name="workshop_id" aria-label="Værksted">
+							<?php foreach ( $key_ws as $w ) : ?>
+								<option value="<?php echo (int) $w->id; ?>"><?php echo esc_html( $w->name ); ?></option>
+							<?php endforeach; ?>
+						</select>
+						<input type="text" name="key_number" placeholder="Nøglenr. (valgfrit)" aria-label="Nøglenummer (valgfrit)" class="vhus-keynr">
+						<select name="payment" aria-label="Betaling">
+							<option value="joining"<?php selected( $suggest, 'joining' ); ?>>Med i indmeldelsen</option>
+							<option value="due"<?php selected( $suggest, 'due' ); ?>>Skal betales (<?php echo esc_html( \VHus\Mailer::kr( (int) Settings::get( 'fee_key' ) ) ); ?> kr)</option>
+							<option value="none">Ingen betaling</option>
+						</select>
+						<button class="button">Udlevér nøgle</button>
 					</form>
+					<p class="description">En ny nøgle til et værksted, hvor medlemmet allerede har en, erstatter den gamle. "Skal betales" sætter nøglen på kassererens liste.</p>
 				<?php endif; ?>
+
+				<?php Users_Admin::member_box( $m ); ?>
 
 				<?php if ( current_user_can( Roles::CAP_ADMIN ) ) : ?>
 					<h2>Log</h2>
 					<ul class="vhus-log">
 						<?php foreach ( Log::for_object( 'member', $id, 20 ) as $entry ) : ?>
 							<?php $u = $entry->user_id ? get_userdata( (int) $entry->user_id ) : null; ?>
-							<li><?php echo esc_html( mysql2date( 'j. M Y H:i', $entry->created_at ) . ' · ' . ( $u ? $u->display_name : 'system' ) . ' · ' . $entry->action ); ?></li>
+							<li><?php echo esc_html( mysql2date( 'j. M Y H:i', $entry->created_at ) . ' · ' . ( $u ? $u->display_name : 'system' ) . ' · ' . ( Tools_Pages::LOG_LABELS[ $entry->action ] ?? $entry->action ) ); ?></li>
 						<?php endforeach; ?>
 					</ul>
 				<?php endif; ?>
@@ -488,7 +617,28 @@ class Admin {
 		if ( $ws_id && Workshops::get( $ws_id ) ) {
 			$seat_id = Members::add_seat( $id, $ws_id, 'waiting' );
 			if ( isset( $_POST['seat_status'] ) && 'approved' === $_POST['seat_status'] ) {
+				$has_gate = ! empty( $_POST['existing_gate'] );
+				if ( $has_gate ) {
+					Gate::set_linked( $id, true );
+				}
 				Flow::approve( $seat_id, false );
+				if ( ! empty( $_POST['existing_paid'] ) && current_user_can( Roles::CAP_INVOICE ) ) {
+					$type = isset( $_POST['existing_fee_type'] ) && 'half' === $_POST['existing_fee_type'] ? 'half' : 'full';
+					Flow::mark_paid_manual(
+						$id,
+						array(
+							'year'       => Util::year_label(),
+							'fee_type'   => $type,
+							'amount_fee' => (int) Settings::get( 'half' === $type ? 'fee_half' : 'fee_full' ),
+							'amount_key' => 0,
+							'note'       => 'Eksisterende medlem, betalt før systemet',
+							'gate'       => ! $has_gate,
+						)
+					);
+				}
+				if ( ! empty( $_POST['existing_key'] ) ) {
+					Members::add_key( $id, $ws_id, '', 'none' );
+				}
 			}
 		}
 		self::redirect( self::member_url( $id ), 'Medlemmet er oprettet.' );
@@ -531,20 +681,79 @@ class Admin {
 		self::redirect( self::member_url( $member_id ), 'Værksted tilføjet.' );
 	}
 
-	/** Register a fob. */
+	/** Register a payment made outside Dinero (cashier and administrators). */
+	public static function handle_mark_paid(): void {
+		$member_id = isset( $_POST['member_id'] ) ? absint( $_POST['member_id'] ) : 0;
+		check_admin_referer( 'vhus_mark_paid_' . $member_id );
+		if ( ! current_user_can( Roles::CAP_INVOICE ) || ! Members::get( $member_id ) ) {
+			wp_die( 'Du har ikke adgang.', 403 );
+		}
+		$year = isset( $_POST['year'] ) ? sanitize_text_field( wp_unslash( $_POST['year'] ) ) : '';
+		if ( ! preg_match( '/^\d{4}\/\d{2}$/', $year ) ) {
+			self::redirect( self::member_url( $member_id ), 'Ugyldigt medlemsår.', 'error' );
+		}
+		$gate = isset( $_POST['gate'] ) && '1' === $_POST['gate'];
+		$id   = Flow::mark_paid_manual(
+			$member_id,
+			array(
+				'year'       => $year,
+				'fee_type'   => isset( $_POST['fee_type'] ) ? sanitize_key( $_POST['fee_type'] ) : 'full',
+				'amount_fee' => isset( $_POST['amount_fee'] ) ? absint( $_POST['amount_fee'] ) : 0,
+				'amount_key' => ! empty( $_POST['with_key'] ) ? (int) Settings::get( 'fee_key' ) : 0,
+				'paid_on'    => isset( $_POST['paid_on'] ) ? sanitize_text_field( wp_unslash( $_POST['paid_on'] ) ) : '',
+				'note'       => isset( $_POST['note'] ) ? sanitize_text_field( wp_unslash( $_POST['note'] ) ) : '',
+				'gate'       => $gate,
+			)
+		);
+		if ( ! $id ) {
+			self::redirect( self::member_url( $member_id ), sprintf( '%s er allerede betalt.', $year ), 'error' );
+		}
+		self::redirect( self::member_url( $member_id ), sprintf( 'Betaling for %s registreret.%s', $year, $gate ? ' Portadministratoren har fået en opgave.' : '' ) );
+	}
+
+	/** Undo a manual payment. */
+	public static function handle_undo_paid(): void {
+		$period_id = isset( $_POST['period_id'] ) ? absint( $_POST['period_id'] ) : 0;
+		check_admin_referer( 'vhus_undo_paid_' . $period_id );
+		if ( ! current_user_can( Roles::CAP_INVOICE ) ) {
+			wp_die( 'Du har ikke adgang.', 403 );
+		}
+		$p  = Members::period( $period_id );
+		$ok = Flow::undo_manual_paid( $period_id );
+		self::redirect(
+			$p ? self::member_url( (int) $p->member_id ) : admin_url( 'admin.php?page=vhus-members' ),
+			$ok ? 'Den manuelle betaling er fortrudt. Eventuelle portopgaver ligger stadig på Port.' : 'Kun manuelle betalinger kan fortrydes.',
+			$ok ? 'success' : 'error'
+		);
+	}
+
+	/** Hand out a workshop key: admins, or the contact for that workshop. */
 	public static function handle_add_key(): void {
 		$member_id = isset( $_POST['member_id'] ) ? absint( $_POST['member_id'] ) : 0;
 		check_admin_referer( 'vhus_add_key_' . $member_id );
-		if ( ! current_user_can( Roles::CAP_MANAGE_ALL ) && ! current_user_can( Roles::CAP_GATE ) ) {
+		$ws_id = isset( $_POST['workshop_id'] ) ? absint( $_POST['workshop_id'] ) : 0;
+		if ( ! Members::get( $member_id ) || ! $ws_id || ! Workshops::get( $ws_id ) || ! Roles::can_manage_workshop( $ws_id ) ) {
 			wp_die( 'Du har ikke adgang.', 403 );
 		}
-		if ( ! Members::get( $member_id ) ) {
-			wp_die( 'Medlemmet findes ikke.', 404 );
-		}
-		Members::add_key( $member_id, isset( $_POST['fob_number'] ) ? sanitize_text_field( wp_unslash( $_POST['fob_number'] ) ) : '' );
-		self::redirect( self::member_url( $member_id ), 'Brik registreret.' );
+		$payment = isset( $_POST['payment'] ) ? sanitize_key( $_POST['payment'] ) : 'due';
+		$payment = in_array( $payment, array( 'joining', 'due', 'none' ), true ) ? $payment : 'due';
+		$number  = isset( $_POST['key_number'] ) ? sanitize_text_field( wp_unslash( $_POST['key_number'] ) ) : '';
+		Members::add_key( $member_id, $ws_id, $number, $payment );
+		self::redirect( self::member_url( $member_id ), 'due' === $payment ? 'Nøgle udleveret og sat på kassererens liste.' : 'Nøgle udleveret.' );
 	}
 
+	/** Mark a key handed back. */
+	public static function handle_return_key(): void {
+		$key_id = isset( $_POST['key_id'] ) ? absint( $_POST['key_id'] ) : 0;
+		check_admin_referer( 'vhus_return_key_' . $key_id );
+		$k = Members::key( $key_id );
+		if ( ! $k || ! ( $k->workshop_id ? Roles::can_manage_workshop( (int) $k->workshop_id ) : current_user_can( Roles::CAP_MANAGE_ALL ) ) ) {
+			wp_die( 'Du har ikke adgang.', 403 );
+		}
+		Members::return_key( $key_id );
+		$back = Roles::can_view_member( (int) $k->member_id ) ? self::member_url( (int) $k->member_id ) : admin_url( 'admin.php?page=vhus-members' );
+		self::redirect( $back, 'Nøglen er markeret som afleveret.' );
+	}
 
 	/* ---------------------------------------------------------------------
 	 * Workshops
@@ -767,7 +976,7 @@ class Admin {
 			'Kontingent'   => array(
 				'fee_full'      => array( 'Helt år (kr)', 'number', '' ),
 				'fee_half'      => array( 'Halvt år (kr)', 'number', '' ),
-				'fee_key'       => array( 'Nøglebrik (kr)', 'number', 'Ved indmeldelse og for hver ny brik.' ),
+				'fee_key'       => array( 'Værkstedsnøgle (kr)', 'number', 'Ved indmeldelse og for hver ny nøgle.' ),
 				'half_fee_from' => array( 'Halvt kontingent fra', 'text', 'MM-DD. Indmeldelse fra denne dato betaler halvt år.' ),
 			),
 			'Medlemsår'    => array(

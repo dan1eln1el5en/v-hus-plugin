@@ -97,25 +97,62 @@ Sync rules:
 
 ## Gate queue (EasyAccess)
 
-EasyAccess has no API, so the plugin keeps a to-do list for the gate admin (V-huset → Port):
+The main gate opens when a member calls it from a mobile number that EasyAccess knows, so the phone number
+is the only access item. EasyAccess has no API, so the plugin keeps a to-do list for the gate admin (V-huset → Port):
 
 | Event | Action |
 | --- | --- |
 | Membership paid, member not in EasyAccess | Opret bruger (in the downloadable import file) |
 | Membership paid, member already in EasyAccess (renewal) | Tilføj til gruppe (e.g. Medlem 2027/28) |
-| New phone, or a new fob for someone in EasyAccess | Ret bruger |
+| New phone number for someone in EasyAccess | Ret bruger |
 | Last approved workshop seat ends | Slet bruger (snapshot kept, so it survives data deletion) |
 
 - "In EasyAccess" is a flag on the member: set for everyone imported from the Excel list, for members
   matched from an EasyAccess XML export, and when an "Opret bruger" is marked done; a done "Slet bruger" clears it.
 - Import file columns follow the EasyAccess template: Fulde navn, ID (= member id), Pinkode (empty),
-  Nøglekort/Brik, Telefon (+45…), Gruppenavn. All cells are text.
-- A replacement fob is queued at once (the old one may be lost) and listed on Fakturering until Dinero shows
-  the key fee paid. This differs from the spec, which waited for payment; the old fob staying active is the bigger risk.
+  Nøglekort/Brik (empty, not used), Telefon (+45…), Gruppenavn. All cells are text.
 - Daily at 07:00: one e-mail a week about tasks older than 7 days; in March, a reminder to create next year's
   group with its dates (year start → `grace_until` the year after).
 - XML comparison: the export's exact layout isn't documented, so the reader accepts both element-style
   (`<Bruger><Telefon>…`) and attribute-style (`<User Phone="…"/>`) records and matches on phone number.
+
+## Payments outside Dinero
+
+Dinero is the normal source of "paid", but people who paid before the system, in cash, or otherwise can be
+registered by the cashier or an administrator:
+
+- Member page → Kontingent → *Registrér betaling uden om Dinero*: year (last, current or next), full/half fee and
+  amount, optional key fee, date, note, and whether the member already has gate access for that year
+  (no gate task) or needs it (queues "Opret bruger" / "Tilføj til gruppe" like a Dinero payment).
+- *Tilføj medlem* with status *Godkendt* has an "existing member" block: already paid this year, already has
+  gate access, already has the workshop key. Nothing is invoiced, queued or charged for what they already have.
+- Manual payments are marked "Registreret manuelt af …" with the note, logged, and can be undone (back to the
+  cashier's list). Payments from Dinero cannot be undone by hand, and the sync never overrides a paid period.
+
+## Members and WordPress users
+
+- A member can be linked to one WordPress user (`members.wp_user_id`). Members and users with the same e-mail
+  are linked automatically (when either is created, and once for existing data on upgrade).
+- Member page → *Login og roller* (administrators): create a WordPress user for the member (username from the
+  e-mail; WordPress sends its own "set your password" e-mail), link to an existing user with the same e-mail,
+  tick the plugin roles (Værkstedskontakt, Kasserer, Portadministrator), or remove the link. Only these three
+  roles can be given here; WordPress administrator rights are managed under Users as usual.
+- WordPress user profile → *V-huset*: shows the linked member, or *Opret som medlem* for a user who isn't one.
+- The member list has a *Rolle* column; the Users list has a *V-huset-medlem* column.
+- Deleting a member never deletes the WordPress user, and deleting a user only removes the link.
+
+## Workshop keys
+
+Each workshop has its own physical key; the 200 kr key fee pays for it. Keys are not in EasyAccess.
+
+- On the member page, an admin or the workshop's contact records "Udlevér nøgle" for a workshop, with an
+  optional number and a payment choice: *Med i indmeldelsen* (the joining invoice included the key fee;
+  suggested for a member's first key), *Skal betales* (goes on Fakturering until Dinero shows the key fee paid),
+  or *Ingen betaling*.
+- A new key for a workshop where the member already holds one replaces it ("Erstattet").
+- When a member leaves a workshop while holding its key, the key shows as "Ikke afleveret" until someone
+  marks it handed back.
+- The table column is still called `fob_number` (it holds the optional key number).
 
 ## Personal data (GDPR)
 

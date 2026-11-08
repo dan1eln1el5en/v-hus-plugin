@@ -11,3 +11,6 @@
 *.xlsx
 *.csv
 *.sqlite
+
+# Built plugin zips
+dist/

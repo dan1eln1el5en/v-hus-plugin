@@ -56,6 +56,7 @@ class DB {
   postcode varchar(10) NOT NULL DEFAULT '',
   city varchar(100) NOT NULL DEFAULT '',
   dinero_contact_guid varchar(36) DEFAULT NULL,
+  wp_user_id bigint(20) unsigned DEFAULT NULL,
   consent_at datetime DEFAULT NULL,
   easyaccess_linked_at datetime DEFAULT NULL,
   notes text,
@@ -63,7 +64,8 @@ class DB {
   updated_at datetime NOT NULL,
   PRIMARY KEY  (id),
   KEY email (email),
-  KEY phone_e164 (phone_e164)
+  KEY phone_e164 (phone_e164),
+  KEY wp_user_id (wp_user_id)
 ) $c;",
 			'CREATE TABLE ' . self::t( 'workshops' ) . " (
   id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
@@ -101,6 +103,8 @@ class DB {
   dinero_invoice_guid varchar(36) DEFAULT NULL,
   invoiced_at datetime DEFAULT NULL,
   paid_at datetime DEFAULT NULL,
+  paid_by bigint(20) unsigned DEFAULT NULL,
+  paid_note varchar(190) DEFAULT NULL,
   created_at datetime NOT NULL,
   PRIMARY KEY  (id),
   UNIQUE KEY member_year (member_id,year_label),
@@ -109,6 +113,7 @@ class DB {
 			'CREATE TABLE ' . self::t( 'keys' ) . " (
   id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
   member_id bigint(20) unsigned NOT NULL,
+  workshop_id bigint(20) unsigned DEFAULT NULL,
   fob_number varchar(50) NOT NULL DEFAULT '',
   issued_at datetime DEFAULT NULL,
   returned_at datetime DEFAULT NULL,
