@@ -48,6 +48,42 @@ class Workshops {
 	}
 
 	/**
+	 * Find a workshop from a shortcode attribute (slug, code or name) or, with '', from the current page:
+	 * its chosen page, or a page whose slug equals the workshop slug.
+	 */
+	public static function resolve( string $ref = '' ): ?object {
+		$ref = trim( $ref );
+		if ( '' !== $ref ) {
+			$id = self::lookup_map()[ mb_strtolower( $ref ) ] ?? 0;
+			return $id ? self::get( $id ) : null;
+		}
+		$post = get_post();
+		if ( ! $post ) {
+			return null;
+		}
+		foreach ( self::all() as $w ) {
+			if ( (int) $w->page_id === (int) $post->ID ) {
+				return $w;
+			}
+		}
+		foreach ( self::all() as $w ) {
+			if ( $w->slug === $post->post_name ) {
+				return $w;
+			}
+		}
+		return null;
+	}
+
+	/** Public URL of the workshop's page ('' if none). */
+	public static function url( object $w ): string {
+		if ( $w->page_id && get_post_status( (int) $w->page_id ) === 'publish' ) {
+			return (string) get_permalink( (int) $w->page_id );
+		}
+		$page = get_page_by_path( 'vaerksteder/' . $w->slug ) ?? get_page_by_path( $w->slug );
+		return $page && 'publish' === $page->post_status ? (string) get_permalink( $page ) : '';
+	}
+
+	/**
 	 * Workshop ids a user is contact for.
 	 *
 	 * @return int[]
@@ -74,6 +110,8 @@ class Workshops {
 			'name'            => sanitize_text_field( $data['name'] ?? '' ),
 			'contact_user_id' => ! empty( $data['contact_user_id'] ) ? absint( $data['contact_user_id'] ) : null,
 			'capacity'        => ( isset( $data['capacity'] ) && '' !== $data['capacity'] ) ? absint( $data['capacity'] ) : null,
+			'page_id'         => ! empty( $data['page_id'] ) ? absint( $data['page_id'] ) : null,
+			'public_email'    => sanitize_email( (string) ( $data['public_email'] ?? '' ) ),
 		);
 		if ( '' === $row['name'] ) {
 			unset( $row['name'] );

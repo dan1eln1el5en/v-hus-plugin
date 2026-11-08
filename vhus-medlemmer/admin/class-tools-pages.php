@@ -392,6 +392,7 @@ class Tools_Pages {
 					'Vælg kontakten for hvert værksted under <strong>Værksteder</strong>.',
 					'Beløb, datoer, gruppenavn, sletning og e-mailtekster ligger under <strong>Indstillinger</strong>.',
 					'Sæt tilmeldingsformularen ind på en side med kortkoden <code>[vhus_tilmelding]</code>.',
+					'Hjemmesiden: <code>[vhus_venteliste knap="ja"]</code> på hvert værksteds side viser ventelisten og en knap til tilmelding. <code>[vhus_vaerksteder]</code> på forsiden viser alle værksteder, og <code>[vhus_kontakter]</code> på Kontakt-siden viser bestyrelse og kontaktpersoner. Bestyrelsespost og offentlig e-mail sættes på medlemmets side.',
 					'Eksisterende medlemmer, der ikke var på Excel-listen: <em>Tilføj medlem</em>, vælg værksted og <em>Godkendt</em>, og sæt flueben ved det, de allerede har (betalt, adgang til porten, nøgle).',
 					'Dinero-nøglerne skal stå i <code>wp-config.php</code>; se <strong>Dinero</strong> for præcis hvilke.',
 					'<strong>Persondata</strong> viser, hvem der snart slettes automatisk. <strong>Log</strong> viser, hvem der har set eller ændret hvad.',

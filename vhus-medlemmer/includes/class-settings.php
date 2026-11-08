@@ -31,6 +31,7 @@ class Settings {
 			'retention_log'        => 36, // Months to keep the audit log and done gate actions.
 			'notify_email'         => '',  // Administrator e-mail for sync failures etc. Empty = admin_email.
 			'privacy_url'          => '',  // Privacy notice linked from the sign-up form. Empty = WordPress privacy page.
+			'signup_page_id'       => 0,   // Page with [vhus_tilmelding]; 0 = found automatically.
 			'renewal_from'         => '03-01', // MM-DD: invoices dated from here until year_start count for the NEXT membership year.
 			'dinero_products_full' => array(), // Dinero ProductGuids for the full fee. Empty = match on amount.
 			'dinero_products_half' => array(),
@@ -110,6 +111,10 @@ class Settings {
 		}
 		if ( isset( $input['notify_email'] ) ) {
 			$out['notify_email'] = sanitize_email( $input['notify_email'] );
+		}
+		if ( isset( $input['signup_page_id'] ) ) {
+			$out['signup_page_id'] = absint( $input['signup_page_id'] );
+			delete_transient( 'vhus_signup_page' );
 		}
 		if ( isset( $input['privacy_url'] ) ) {
 			$out['privacy_url'] = esc_url_raw( trim( (string) $input['privacy_url'] ) );

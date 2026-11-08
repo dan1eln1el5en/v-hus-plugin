@@ -2,7 +2,7 @@
 /**
  * Plugin Name:       V-huset Medlemmer
  * Description:       Medlemskartotek for Værkstedshuset i Hannovergade: venteliste pr. værksted, betaling via Dinero og adgang via EasyAccess.
- * Version:           0.8.0
+ * Version:           0.9.0
  * Requires at least: 6.4
  * Requires PHP:      8.0
  * Author:            Værkstedshuset i Hannovergade
@@ -16,8 +16,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'VHUS_VERSION', '0.8.0' );
-define( 'VHUS_DB_VERSION', '7' );
+define( 'VHUS_VERSION', '0.9.0' );
+define( 'VHUS_DB_VERSION', '8' );
 define( 'VHUS_FILE', __FILE__ );
 define( 'VHUS_DIR', plugin_dir_path( __FILE__ ) );
 define( 'VHUS_URL', plugin_dir_url( __FILE__ ) );
@@ -42,6 +42,7 @@ require_once VHUS_DIR . 'includes/class-easyaccess.php';
 require_once VHUS_DIR . 'includes/class-gate.php';
 require_once VHUS_DIR . 'includes/class-privacy.php';
 require_once VHUS_DIR . 'includes/class-users.php';
+require_once VHUS_DIR . 'includes/class-shortcodes.php';
 
 register_activation_hook( __FILE__, array( 'VHus\\Installer', 'activate' ) );
 register_deactivation_hook( __FILE__, array( 'VHus\\Dinero_Sync', 'unschedule' ) );
@@ -53,6 +54,7 @@ add_action( 'init', array( 'VHus\\Dinero_Sync', 'init' ) );
 add_action( 'init', array( 'VHus\\Gate', 'init' ) );
 add_action( 'init', array( 'VHus\\Privacy', 'init' ) );
 add_action( 'init', array( 'VHus\\Users', 'init' ) );
+add_action( 'init', array( 'VHus\\Shortcodes', 'init' ) );
 
 if ( is_admin() ) {
 	require_once VHUS_DIR . 'admin/class-admin.php';

@@ -50,6 +50,21 @@ vhus-medlemmer/
     class-tools-pages.php   Persondata (retention), Log (audit trail), Vejledning (guide per role), member delete
 ```
 
+## Shortcodes for the website
+
+| Shortcode | Where | Shows |
+| --- | --- | --- |
+| `[vhus_tilmelding]` | Indmeldelse page | The sign-up form. `?vaerksted=<slug>` pre-ticks a workshop. |
+| `[vhus_venteliste]` | Each workshop page | "Der står 3 på ventelisten." Finds the workshop from the page (chosen under Værksteder, or a page whose slug is the workshop slug, e.g. `/vaerksteder/atelier/`). Options: `vaerksted="atelier"`, `visning="tal"` (number only), `pladser="ja"` (capacity), `knap="ja"` (sign-up button for that workshop). |
+| `[vhus_vaerksteder]` | Front page | The workshop list with links and waiting-list length. `kontakt="ja"` adds the contact's name; `venteliste="nej"` hides the counts. |
+| `[vhus_kontakter]` | Kontakt page | Board and workshop contacts: name, board post, "kontaktperson for …" and an e-mail. `vis="bestyrelse"` or `vis="kontakter"` to show only one group. |
+
+- Workshops are seeded with the names and slugs used on v-hus.dk (Atelier, Flex-Værksted, Golden Spike
+  Modeljernbane, Mekanik, Syværksted, Træ og Metal), so the workshop pages are found without setup.
+- Board post and "e-mail på hjemmesiden" are set per member (member page, administrators); a workshop can have
+  its own public e-mail (Værksteder), e.g. a shared address. A member's private e-mail is never shown, and
+  shown addresses are obfuscated with `antispambot()`.
+
 ## Sign-up page
 
 Put the shortcode `[vhus_tilmelding]` on a page, e.g. v-hus.dk/tilmelding. Fields are prefixed `vhus_`

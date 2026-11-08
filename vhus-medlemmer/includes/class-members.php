@@ -39,6 +39,22 @@ class Members {
 		'none'             => 'Intet værksted',
 	);
 
+	/** Board posts, in the order they are listed on the Kontakt page. */
+	const BOARD_TITLES = array( 'Formand', 'Næstformand', 'Kasserer', 'Sekretær', 'Bestyrelsesmedlem', 'Suppleant', 'Revisor' );
+
+	/** Set board post and public e-mail (administrators only; '' clears). */
+	public static function set_public_profile( int $id, string $title, string $email ): void {
+		global $wpdb;
+		$title = in_array( $title, self::BOARD_TITLES, true ) ? $title : '';
+		$email = sanitize_email( $email );
+		$m     = self::get( $id );
+		if ( ! $m || ( $m->board_title === $title && $m->public_email === $email ) ) {
+			return;
+		}
+		$wpdb->update( DB::t( 'members' ), array( 'board_title' => $title, 'public_email' => $email ), array( 'id' => $id ) );
+		Log::add( 'member_public_profile', 'member', $id, array( 'title' => $title, 'email' => '' !== $email ) );
+	}
+
 	/** Editable member fields. */
 	const FIELDS = array( 'name', 'email', 'phone_e164', 'address', 'postcode', 'city', 'notes' );
 

@@ -1,0 +1,8 @@
+/* Shortcodes: inherit the theme, only spacing. */
+.vhus-workshops, .vhus-contacts { padding-left: 1.2em; }
+.vhus-workshops li, .vhus-contacts li { margin-bottom: 0.35em; }
+.vhus-meta { opacity: 0.75; }
+.vhus-contacts .vhus-meta { display: block; }
+.vhus-contacts a { word-break: break-all; }
+.vhus-waiting-box { display: flex; flex-wrap: wrap; gap: 0.5em 1em; align-items: center; }
+.vhus-button { display: inline-block; text-decoration: none; }

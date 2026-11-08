@@ -23,6 +23,7 @@ class Users_Admin {
 	public static function init(): void {
 		add_action( 'admin_post_vhus_wp_user', array( __CLASS__, 'handle' ) );
 		add_action( 'admin_post_vhus_member_from_user', array( __CLASS__, 'handle_member_from_user' ) );
+		add_action( 'admin_post_vhus_public_profile', array( __CLASS__, 'handle_public_profile' ) );
 		add_action( 'show_user_profile', array( __CLASS__, 'profile_panel' ) );
 		add_action( 'edit_user_profile', array( __CLASS__, 'profile_panel' ) );
 		add_filter( 'manage_users_columns', array( __CLASS__, 'users_column' ) );
@@ -77,6 +78,24 @@ class Users_Admin {
 		$match = ! $u && $m->email ? get_user_by( 'email', $m->email ) : null;
 		$match = $match && ! Users::member_for_user( (int) $match->ID ) ? $match : null;
 		?>
+		<h2>Bestyrelse og hjemmeside</h2>
+		<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="vhus-inline vhus-add">
+			<input type="hidden" name="action" value="vhus_public_profile">
+			<input type="hidden" name="member_id" value="<?php echo (int) $m->id; ?>">
+			<?php wp_nonce_field( 'vhus_public_profile_' . (int) $m->id ); ?>
+			<label for="vhus-board-title">Bestyrelsespost</label>
+			<select id="vhus-board-title" name="board_title">
+				<option value="">— Ingen —</option>
+				<?php foreach ( Members::BOARD_TITLES as $t ) : ?>
+					<option value="<?php echo esc_attr( $t ); ?>"<?php selected( $m->board_title, $t ); ?>><?php echo esc_html( $t ); ?></option>
+				<?php endforeach; ?>
+			</select>
+			<label for="vhus-public-email">E-mail på hjemmesiden</label>
+			<input id="vhus-public-email" type="email" name="public_email" value="<?php echo esc_attr( (string) $m->public_email ); ?>" placeholder="Vises ikke">
+			<button class="button">Gem</button>
+		</form>
+		<p class="description">Bestyrelsesposten og e-mailen vises på Kontakt-siden ([vhus_kontakter]). Tom e-mail = der vises ingen e-mail. Medlemmets private e-mail bliver aldrig vist.</p>
+
 		<h2>Login og roller</h2>
 		<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="vhus-wpuser">
 			<input type="hidden" name="action" value="vhus_wp_user">
@@ -164,6 +183,21 @@ class Users_Admin {
 				break;
 		}
 		self::back( $member_id, 'Ukendt handling.', 'error' );
+	}
+
+	/** Save board post and public e-mail. */
+	public static function handle_public_profile(): void {
+		$member_id = isset( $_POST['member_id'] ) ? absint( $_POST['member_id'] ) : 0;
+		check_admin_referer( 'vhus_public_profile_' . $member_id );
+		if ( ! current_user_can( Roles::CAP_ADMIN ) || ! Members::get( $member_id ) ) {
+			wp_die( 'Du har ikke adgang.', 403 );
+		}
+		Members::set_public_profile(
+			$member_id,
+			isset( $_POST['board_title'] ) ? sanitize_text_field( wp_unslash( $_POST['board_title'] ) ) : '',
+			isset( $_POST['public_email'] ) ? sanitize_email( wp_unslash( $_POST['public_email'] ) ) : ''
+		);
+		self::back( $member_id, 'Gemt. Kontakt-siden er opdateret.' );
 	}
 
 	/** Panel on a WordPress user's profile. */

@@ -165,6 +165,14 @@ class Signup {
 			'workshop_ids' => array(),
 			'consent'      => false,
 		);
+		// ?vaerksted=<slug> (from a "Skriv dig op" button) pre-ticks that workshop on a fresh form.
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- display only.
+		if ( ! self::$input && isset( $_GET['vaerksted'] ) ) {
+			$pre = Workshops::resolve( sanitize_title( wp_unslash( $_GET['vaerksted'] ) ) );
+			if ( $pre ) {
+				$in['workshop_ids'] = array( (int) $pre->id );
+			}
+		}
 		$counts  = Workshops::seat_counts();
 		$privacy = self::privacy_url();
 

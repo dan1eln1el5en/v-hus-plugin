@@ -772,12 +772,14 @@ class Admin {
 		<div class="wrap vhus">
 			<h1>Værksteder</h1>
 			<?php self::notice(); ?>
-			<p>Værkstedskontakten skal have rollen <strong>Værkstedskontakt</strong> (eller være administrator) for at kunne se sit værksted.</p>
+			<p>Værkstedskontakten skal have rollen <strong>Værkstedskontakt</strong> (eller være administrator) for at kunne se sit værksted.
+				<strong>E-mail på hjemmesiden</strong> vises på Kontakt-siden ved værkstedet; tom = kontaktens egen offentlige e-mail (sættes på medlemmets side).
+				<strong>Side</strong> er værkstedets side på hjemmesiden, hvor <code>[vhus_venteliste]</code> finder værkstedet selv.</p>
 			<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
 				<input type="hidden" name="action" value="vhus_save_workshops">
 				<?php wp_nonce_field( 'vhus_save_workshops' ); ?>
 				<table class="widefat striped vhus-narrow">
-					<thead><tr><th>Kode</th><th>Navn</th><th>Kontakt</th><th>Pladser</th></tr></thead>
+					<thead><tr><th>Kode</th><th>Navn</th><th>Kontakt</th><th>E-mail på hjemmesiden</th><th>Pladser</th><th>Side</th></tr></thead>
 					<tbody>
 					<?php foreach ( Workshops::all() as $w ) : ?>
 						<tr>
@@ -791,7 +793,24 @@ class Admin {
 									<?php endforeach; ?>
 								</select>
 							</td>
+							<td><input type="email" name="ws[<?php echo (int) $w->id; ?>][public_email]" value="<?php echo esc_attr( (string) $w->public_email ); ?>" placeholder="Kontaktens egen" aria-label="E-mail på hjemmesiden"></td>
 							<td><input type="number" min="0" class="small-text" name="ws[<?php echo (int) $w->id; ?>][capacity]" value="<?php echo esc_attr( (string) $w->capacity ); ?>" aria-label="Pladser"></td>
+							<td>
+								<?php
+								wp_dropdown_pages(
+									array(
+										'name'              => 'ws[' . (int) $w->id . '][page_id]',
+										'selected'          => (int) $w->page_id,
+										'show_option_none'  => '— Side med samme navn —',
+										'option_none_value' => '0',
+									)
+								);
+								?>
+								<?php $wurl = Workshops::url( $w ); ?>
+								<?php if ( $wurl ) : ?>
+									<a href="<?php echo esc_url( $wurl ); ?>" target="_blank" rel="noopener" aria-label="<?php echo esc_attr( 'Vis siden for ' . $w->name ); ?>">↗</a>
+								<?php endif; ?>
+							</td>
 						</tr>
 					<?php endforeach; ?>
 					</tbody>
@@ -991,6 +1010,7 @@ class Admin {
 				'retention_log'      => array( 'Gem log og udførte portopgaver (måneder)', 'number', '' ),
 				'notify_email'       => array( 'E-mail til advarsler', 'email', 'Tom = sidens administrator-e-mail. Får også besked om nye på ventelisten, når et værksted ikke har en kontakt.' ),
 				'privacy_url'        => array( 'Link til privatlivspolitik', 'url', 'Vises ved tilmeldingsformularen. Tom = WordPress’ privatlivsside.' ),
+				'signup_page_id'     => array( 'Tilmeldingsside', 'page', 'Siden med [vhus_tilmelding]. "Skriv dig op"-knapperne linker hertil. Tom = findes automatisk.' ),
 			),
 		);
 		foreach ( \VHus\Mailer::TEMPLATES as $key => $def ) {
@@ -1012,7 +1032,19 @@ class Admin {
 							<tr>
 								<th scope="row"><label for="vhus-s-<?php echo esc_attr( $k ); ?>"><?php echo esc_html( $def[0] ); ?></label></th>
 								<td>
-									<?php if ( 'textarea' === $def[1] ) : ?>
+									<?php if ( 'page' === $def[1] ) : ?>
+										<?php
+										wp_dropdown_pages(
+											array(
+												'name'             => esc_attr( $name( $k ) ),
+												'id'               => 'vhus-s-' . esc_attr( $k ),
+												'selected'         => (int) $s[ $k ],
+												'show_option_none' => '— Find automatisk —',
+												'option_none_value' => '0',
+											)
+										);
+										?>
+									<?php elseif ( 'textarea' === $def[1] ) : ?>
 										<textarea id="vhus-s-<?php echo esc_attr( $k ); ?>" name="<?php echo esc_attr( $name( $k ) ); ?>" rows="7" class="large-text"><?php echo esc_textarea( (string) $s[ $k ] ); ?></textarea>
 									<?php else : ?>
 										<input id="vhus-s-<?php echo esc_attr( $k ); ?>" type="<?php echo esc_attr( $def[1] ); ?>" name="<?php echo esc_attr( $name( $k ) ); ?>" value="<?php echo esc_attr( (string) $s[ $k ] ); ?>" class="<?php echo 'number' === $def[1] ? 'small-text' : ( 'text' === $def[1] && str_starts_with( $k, 'mail_' ) ? 'large-text' : 'regular-text' ); ?>"<?php echo 'number' === $def[1] ? ' min="0"' : ''; ?>>

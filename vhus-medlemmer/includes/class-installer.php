@@ -14,14 +14,17 @@ defined( 'ABSPATH' ) || exit;
  */
 class Installer {
 
-	/** Workshops from the Excel list. Code = the abbreviation used there. */
+	/**
+	 * Workshops: code = the abbreviation in the Excel list; slug and name as on v-hus.dk
+	 * (the slug matches the page /vaerksteder/<slug>/, so shortcodes find their workshop).
+	 */
 	const SEED_WORKSHOPS = array(
 		array( 'AT', 'atelier', 'Atelier' ),
-		array( 'FX', 'flex', 'Flex' ),
-		array( 'GS', 'goldenspikes', 'GoldenSpikes' ),
+		array( 'FX', 'flex-vaerksted', 'Flex-Værksted' ),
+		array( 'GS', 'golden-spike-modeljernbane', 'Golden Spike Modeljernbane' ),
 		array( 'MC', 'mekanik', 'Mekanik' ),
-		array( 'TX', 'textil', 'Textil' ),
-		array( 'TM', 'trae-metal', 'Træ&Metal' ),
+		array( 'TX', 'syvaerksted', 'Syværksted' ),
+		array( 'TM', 'trae-og-metal', 'Træ og Metal' ),
 	);
 
 	/** Activation hook. */
@@ -80,7 +83,7 @@ class Installer {
 		global $wpdb;
 		$table = DB::t( 'workshops' );
 		foreach ( self::SEED_WORKSHOPS as $i => $w ) {
-			$exists = $wpdb->get_var( $wpdb->prepare( "SELECT id FROM $table WHERE slug = %s", $w[1] ) );
+			$exists = $wpdb->get_var( $wpdb->prepare( "SELECT id FROM $table WHERE slug = %s OR code = %s", $w[1], $w[0] ) );
 			if ( ! $exists ) {
 				$wpdb->insert(
 					$table,
