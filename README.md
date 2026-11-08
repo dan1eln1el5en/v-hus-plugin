@@ -12,7 +12,7 @@ The plugin itself is in `vhus-medlemmer/` (zip that folder to install).
 | 2. Sign-up and waiting lists | Public form, contact approval, e-mails, ready-to-invoice list | Done |
 | 3. Dinero sync | Contact linking, nightly invoice sync, paid status | Done (tested against a mock; needs real credentials) |
 | 4. Gate queue | Gate actions, EasyAccess import file, XML match | Done (XML format guessed; check with a real export) |
-| 5. GDPR and polish | Retention jobs, privacy notice, user guides | Next |
+| 5. GDPR and polish | Retention jobs, privacy notice, audit log, user guides | Done |
 
 ## Layout
 
@@ -39,6 +39,7 @@ vhus-medlemmer/
     class-gate.php          EasyAccess action queue, event rules, reminders, access groups
     class-easyaccess.php    tolerant reader for the EasyAccess XML user export + phone matching
     class-xlsx-writer.php   .xlsx writer for the EasyAccess import file (all cells as text)
+    class-privacy.php       retention job, member erasure, WP privacy exporter/eraser, policy text
   public/signup.css         form layout (inherits theme styles)
   admin/
     class-admin.php         menus, screens, admin-post handlers
@@ -46,6 +47,7 @@ vhus-medlemmer/
     class-queues.php        Ventelister (contacts) and Fakturering (cashier)
     class-dinero-page.php   Dinero screen: status, sync now, product mapping, manual linking, import check
     class-gate-page.php     Port screen: open actions, import-file download, done/undo, XML comparison
+    class-tools-pages.php   Persondata (retention), Log (audit trail), Vejledning (guide per role), member delete
 ```
 
 ## Sign-up page
@@ -114,6 +116,21 @@ EasyAccess has no API, so the plugin keeps a to-do list for the gate admin (V-hu
   group with its dates (year start → `grace_until` the year after).
 - XML comparison: the export's exact layout isn't documented, so the reader accepts both element-style
   (`<Bruger><Telefon>…`) and attribute-style (`<User Phone="…"/>`) records and matches on phone number.
+
+## Personal data (GDPR)
+
+- Daily (07:00, with the gate reminders): declined applicants are deleted `retention_declined` months
+  (default 6) after the decline; former members `retention_former` months (default 12) after leaving their
+  last workshop. Anyone still waiting or approved anywhere is never deleted automatically.
+- Deleting a member removes their member row, seats, periods and keys, and their done gate actions.
+  An open gate action keeps its snapshot so the gate admin can finish it; if the member was in EasyAccess and
+  no removal was queued, one is queued first. Dinero is not touched.
+- Log entries and done gate actions are purged after `retention_log` months (default 36). The log holds
+  ids and field names only, never the values.
+- Persondata screen: who is deleted within 30 days, "run now", and a data-processor checklist.
+- Right of access/erasure: WordPress Tools → Export/Erase Personal Data include the member data;
+  administrators can also delete a member from the member page (type the name to confirm).
+- Suggested privacy-policy text in Danish appears under Settings → Privacy → Policy guide.
 
 ## Roles
 

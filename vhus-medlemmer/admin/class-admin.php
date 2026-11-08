@@ -453,6 +453,7 @@ class Admin {
 						<?php endforeach; ?>
 					</ul>
 				<?php endif; ?>
+				<?php Tools_Pages::delete_box( $m ); ?>
 			</div>
 			<?php endif; ?>
 			</div>
@@ -778,6 +779,7 @@ class Admin {
 			'Persondata'   => array(
 				'retention_declined' => array( 'Slet afviste efter (måneder)', 'number', '' ),
 				'retention_former'   => array( 'Slet udmeldte efter (måneder)', 'number', '' ),
+				'retention_log'      => array( 'Gem log og udførte portopgaver (måneder)', 'number', '' ),
 				'notify_email'       => array( 'E-mail til advarsler', 'email', 'Tom = sidens administrator-e-mail. Får også besked om nye på ventelisten, når et værksted ikke har en kontakt.' ),
 				'privacy_url'        => array( 'Link til privatlivspolitik', 'url', 'Vises ved tilmeldingsformularen. Tom = WordPress’ privatlivsside.' ),
 			),

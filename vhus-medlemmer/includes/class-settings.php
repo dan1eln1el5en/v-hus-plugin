@@ -28,6 +28,7 @@ class Settings {
 			'group_pattern'        => 'Medlem {year}', // EasyAccess group name; {year} = e.g. 2026/27.
 			'retention_declined'   => 6,  // Months before declined applicants are deleted.
 			'retention_former'     => 12, // Months before former members are deleted.
+			'retention_log'        => 36, // Months to keep the audit log and done gate actions.
 			'notify_email'         => '',  // Administrator e-mail for sync failures etc. Empty = admin_email.
 			'privacy_url'          => '',  // Privacy notice linked from the sign-up form. Empty = WordPress privacy page.
 			'renewal_from'         => '03-01', // MM-DD: invoices dated from here until year_start count for the NEXT membership year.
@@ -83,7 +84,7 @@ class Settings {
 		$input = is_array( $input ) ? $input : array();
 		$out   = self::all();
 
-		foreach ( array( 'fee_full', 'fee_half', 'fee_key', 'retention_declined', 'retention_former' ) as $k ) {
+		foreach ( array( 'fee_full', 'fee_half', 'fee_key', 'retention_declined', 'retention_former', 'retention_log' ) as $k ) {
 			if ( isset( $input[ $k ] ) ) {
 				$out[ $k ] = max( 0, absint( $input[ $k ] ) );
 			}

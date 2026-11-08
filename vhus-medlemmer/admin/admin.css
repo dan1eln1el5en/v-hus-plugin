@@ -30,3 +30,13 @@
 .vhus .button-link.vhus-danger { color: #b32d2e; }
 .vhus tr.vhus-old td { background: #fcf9e8; }
 .vhus tr.vhus-old td:first-child { box-shadow: inset 3px 0 0 #dba617; }
+.vhus-delete { margin-top: 32px; border-top: 1px solid #dcdcde; padding-top: 12px; }
+.vhus-delete summary { cursor: pointer; color: #b32d2e; }
+.vhus .button.vhus-button-danger { color: #b32d2e; border-color: #b32d2e; }
+.vhus-details { font-size: 11px; background: none; white-space: normal; word-break: break-word; }
+.vhus-checklist { list-style: square; padding-left: 20px; }
+.vhus-help details { background: #fff; border: 1px solid #dcdcde; border-radius: 4px; padding: 0 16px; margin: 12px 0; max-width: 760px; }
+.vhus-help summary { cursor: pointer; list-style-position: outside; }
+.vhus-help summary h2 { display: inline-block; margin: 12px 0; }
+.vhus-help ol { max-width: 680px; }
+.vhus-help li { margin-bottom: 6px; }
