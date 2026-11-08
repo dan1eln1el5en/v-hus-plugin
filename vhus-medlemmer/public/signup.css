@@ -1,0 +1,21 @@
+/* Sign-up form: inherits the theme's fonts and colours, only sets layout. */
+.vhus-signup { max-width: 560px; }
+.vhus-signup p { margin: 0 0 1em; }
+.vhus-signup label { display: block; font-weight: 600; margin-bottom: 0.25em; }
+.vhus-signup small { font-weight: normal; opacity: 0.75; display: block; }
+.vhus-signup label small { display: inline; }
+.vhus-signup input[type="text"],
+.vhus-signup input[type="email"],
+.vhus-signup input[type="tel"] { width: 100%; box-sizing: border-box; }
+.vhus-signup fieldset { border: 0; padding: 0; margin: 0 0 1.25em; }
+.vhus-signup legend { font-weight: 600; margin-bottom: 0.5em; }
+.vhus-signup .vhus-check { display: flex; gap: 0.5em; align-items: baseline; font-weight: normal; margin-bottom: 0.4em; }
+.vhus-signup .vhus-queue { opacity: 0.65; font-size: 0.9em; }
+.vhus-signup .vhus-consent { margin: 1em 0; }
+.vhus-signup .vhus-row { display: flex; gap: 1em; flex-wrap: wrap; }
+.vhus-signup .vhus-row > span:first-child { flex: 0 0 8em; }
+.vhus-signup .vhus-row > span:last-child { flex: 1 1 12em; }
+.vhus-signup-errors { border-left: 4px solid #b32d2e; padding: 0.5em 1em; margin-bottom: 1.25em; background: rgba(179, 45, 46, 0.06); }
+.vhus-signup-errors ul { margin: 0; }
+.vhus-signup-done { border-left: 4px solid #00a32a; padding: 0.5em 1em; background: rgba(0, 163, 42, 0.06); }
+.vhus-hp { position: absolute !important; left: -9999px; width: 1px; height: 1px; overflow: hidden; }

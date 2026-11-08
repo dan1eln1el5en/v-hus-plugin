@@ -1,0 +1,13 @@
+# Machine-specific Claude/preview config (points at a temporary test site)
+.claude/
+
+# OS / editor
+.DS_Store
+*.swp
+.idea/
+.vscode/
+
+# Never commit member data or exports
+*.xlsx
+*.csv
+*.sqlite

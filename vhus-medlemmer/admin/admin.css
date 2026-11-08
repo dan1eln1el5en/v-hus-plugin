@@ -1,0 +1,27 @@
+.vhus .vhus-narrow { max-width: 760px; }
+.vhus .num { text-align: right; }
+.vhus-cards { display: flex; flex-wrap: wrap; gap: 12px; margin: 16px 0 24px; }
+.vhus-card { display: flex; flex-direction: column; min-width: 150px; padding: 14px 18px; background: #fff; border: 1px solid #c3c4c7; border-radius: 4px; text-decoration: none; color: #1d2327; }
+.vhus-card:hover { border-color: #2271b1; }
+.vhus-card-n { font-size: 28px; font-weight: 600; line-height: 1.2; }
+.vhus-card-l { color: #50575e; }
+.vhus-columns { display: flex; flex-wrap: wrap; gap: 32px; align-items: flex-start; }
+.vhus-col { flex: 1 1 420px; min-width: 0; }
+.vhus-inline { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.vhus-add { margin: 10px 0 0; }
+.vhus-muted { color: #646970; }
+.vhus-log { color: #50575e; font-size: 12px; }
+.vhus-badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 12px; background: #f0f0f1; }
+.vhus-status-active { background: #d1e7dd; color: #0a3622; }
+.vhus-status-awaiting_payment { background: #fff3cd; color: #664d03; }
+.vhus-status-waiting { background: #cfe2ff; color: #052c65; }
+.vhus-status-former, .vhus-status-declined { background: #e2e3e5; color: #41464b; }
+.vhus-summary { list-style: disc; padding-left: 20px; }
+.vhus-import-error td { background: #fcf0f1; }
+.vhus-import-skip td { color: #8c8f94; }
+.vhus-import-actions { margin-top: 16px; display: flex; gap: 8px; }
+.vhus-capacity { margin: 12px 0; }
+.vhus-decide { display: flex; flex-wrap: wrap; gap: 6px; align-items: flex-start; }
+.vhus-decide details summary { cursor: pointer; color: #b32d2e; padding: 4px 0; }
+.vhus-decide details[open] { flex-basis: 100%; }
+.vhus-decide textarea { display: block; width: 100%; margin: 6px 0; }
