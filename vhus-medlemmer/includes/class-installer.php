@@ -47,6 +47,7 @@ class Installer {
 		if ( false === get_option( Settings::OPTION ) ) {
 			add_option( Settings::OPTION, Settings::defaults(), '', false );
 		}
+		Dinero_Sync::schedule();
 		update_option( 'vhus_db_version', VHUS_DB_VERSION, false );
 	}
 

@@ -30,6 +30,10 @@ class Settings {
 			'retention_former'     => 12, // Months before former members are deleted.
 			'notify_email'         => '',  // Administrator e-mail for sync failures etc. Empty = admin_email.
 			'privacy_url'          => '',  // Privacy notice linked from the sign-up form. Empty = WordPress privacy page.
+			'renewal_from'         => '03-01', // MM-DD: invoices dated from here until year_start count for the NEXT membership year.
+			'dinero_products_full' => array(), // Dinero ProductGuids for the full fee. Empty = match on amount.
+			'dinero_products_half' => array(),
+			'dinero_products_key'  => array(),
 		) + self::default_templates();
 	}
 
@@ -84,7 +88,12 @@ class Settings {
 				$out[ $k ] = max( 0, absint( $input[ $k ] ) );
 			}
 		}
-		foreach ( array( 'half_fee_from', 'year_start', 'grace_until' ) as $k ) {
+		foreach ( array( 'dinero_products_full', 'dinero_products_half', 'dinero_products_key' ) as $k ) {
+			if ( isset( $input[ $k ] ) ) {
+				$out[ $k ] = array_values( array_filter( array_map( 'strtolower', (array) $input[ $k ] ), fn( $g ) => (bool) preg_match( '/^[0-9a-f-]{36}$/', (string) $g ) ) );
+			}
+		}
+		foreach ( array( 'half_fee_from', 'year_start', 'grace_until', 'renewal_from' ) as $k ) {
 			if ( isset( $input[ $k ] ) ) {
 				$v = trim( (string) $input[ $k ] );
 				if ( Util::is_month_day( $v ) ) {

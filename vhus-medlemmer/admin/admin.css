@@ -25,3 +25,6 @@
 .vhus-decide details summary { cursor: pointer; color: #b32d2e; padding: 4px 0; }
 .vhus-decide details[open] { flex-basis: 100%; }
 .vhus-decide textarea { display: block; width: 100%; margin: 6px 0; }
+.vhus-pre { background: #f6f7f7; padding: 8px 12px; overflow-x: auto; }
+.vhus-error { color: #b32d2e; }
+.vhus .button-link.vhus-danger { color: #b32d2e; }

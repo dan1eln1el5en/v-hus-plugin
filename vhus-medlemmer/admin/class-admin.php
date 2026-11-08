@@ -407,7 +407,7 @@ class Admin {
 					<?php endforeach; ?>
 					</tbody>
 				</table>
-				<p class="description">Betalingsstatus kommer fra Dinero og kan ikke ændres her. Ændringer af værkstedsstatus her sender ingen e-mails; brug Ventelister for det.</p>
+				<p class="description"><?php echo $m->dinero_contact_guid ? 'Koblet til Dinero.' : 'Ikke koblet til en Dinero-kontakt endnu.'; ?> Betalingsstatus kommer fra Dinero og kan ikke ændres her. Ændringer af værkstedsstatus her sender ingen e-mails; brug Ventelister for det.</p>
 
 				<h2>Nøglebrik</h2>
 				<table class="widefat striped">
@@ -767,6 +767,7 @@ class Admin {
 				'year_start'    => array( 'Medlemsåret starter', 'text', 'MM-DD, normalt efter generalforsamlingen.' ),
 				'grace_until'   => array( 'Adgang uden fornyelse til', 'text', 'MM-DD året efter. Slutdato for årets adgangsgruppe i EasyAccess.' ),
 				'group_pattern' => array( 'Navn på adgangsgruppe', 'text', '{year} bliver til fx 2026/27.' ),
+				'renewal_from'  => array( 'Fornyelsesfakturaer fra', 'text', 'MM-DD. Kontingentfakturaer dateret fra denne dato til medlemsårets start gælder det kommende år.' ),
 			),
 			'Persondata'   => array(
 				'retention_declined' => array( 'Slet afviste efter (måneder)', 'number', '' ),

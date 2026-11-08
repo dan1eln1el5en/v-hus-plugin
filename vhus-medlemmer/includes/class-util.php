@@ -119,6 +119,21 @@ class Util {
 		return ( $md >= $half_from && $md < $year_start ) ? 'half' : 'full';
 	}
 
+	/**
+	 * Membership year an invoice dated $date pays for. Renewal invoices are sent in spring,
+	 * before the year starts, so from renewal_from until year_start they count for the next year.
+	 */
+	public static function year_label_for_invoice( \DateTimeInterface $date, ?string $year_start = null, ?string $renewal_from = null ): string {
+		$year_start   = $year_start ?? (string) Settings::get( 'year_start' );
+		$renewal_from = $renewal_from ?? (string) Settings::get( 'renewal_from' );
+		$y = self::membership_start_year( $date, $year_start );
+		// Window [renewal_from, year_start), e.g. 1 March – 30 April, belongs to the year starting next.
+		if ( $renewal_from < $year_start && $date->format( 'm-d' ) >= $renewal_from && $date->format( 'm-d' ) < $year_start ) {
+			++$y;
+		}
+		return sprintf( '%d/%02d', $y, ( $y + 1 ) % 100 );
+	}
+
 	/** EasyAccess group name for a year label. */
 	public static function group_name( string $year_label ): string {
 		return str_replace( '{year}', $year_label, (string) Settings::get( 'group_pattern' ) );

@@ -10,8 +10,8 @@ The plugin itself is in `vhus-medlemmer/` (zip that folder to install).
 | --- | --- | --- |
 | 1. Core | Tables, roles, settings, Excel import with dry run, member and workshop screens | Done |
 | 2. Sign-up and waiting lists | Public form, contact approval, e-mails, ready-to-invoice list | Done |
-| 3. Dinero sync | Contact linking, nightly invoice sync, paid status | Next |
-| 4. Gate queue | Gate actions, EasyAccess import file, XML match | |
+| 3. Dinero sync | Contact linking, nightly invoice sync, paid status | Done (tested against a mock; needs real credentials) |
+| 4. Gate queue | Gate actions, EasyAccess import file, XML match | Next |
 | 5. GDPR and polish | Retention jobs, privacy notice, user guides | |
 
 ## Layout
@@ -34,11 +34,14 @@ vhus-medlemmer/
     class-flow.php          sign-up, approve, decline, invoiced (business rules)
     class-mailer.php        templated plain-text e-mails
     class-signup.php        public form, shortcode [vhus_tilmelding]
+    class-dinero-client.php read-only Dinero API client (token cache, paging, 429/401 handling)
+    class-dinero-sync.php   nightly sync: contact linking, invoice → period matching, paid status
   public/signup.css         form layout (inherits theme styles)
   admin/
     class-admin.php         menus, screens, admin-post handlers
     class-members-table.php WP_List_Table
     class-queues.php        Ventelister (contacts) and Fakturering (cashier)
+    class-dinero-page.php   Dinero screen: status, sync now, product mapping, manual linking, import check
 ```
 
 ## Sign-up page
@@ -56,6 +59,36 @@ changes the stored details.
 - Approve/decline from Ventelister sends e-mails; status changes on the member page are silent corrections.
 - Cashier marks periods invoiced (and can undo). "Paid" will come only from the Dinero sync.
 
+## Dinero setup
+
+Credentials go in `wp-config.php` only (never in the repo or the database):
+
+```php
+define( 'VHUS_DINERO_CLIENT_ID', '...' );
+define( 'VHUS_DINERO_CLIENT_SECRET', '...' );
+define( 'VHUS_DINERO_API_KEY', '...' );  // created in V-huset's Dinero organisation
+define( 'VHUS_DINERO_ORG_ID', '...' );
+```
+
+Then open V-huset → Dinero, choose which Dinero products are the full fee, half fee and key fee
+(until then, lines are matched on amount: 1000 / 500 / 200), and press "Synkronisér nu".
+It also runs nightly at 03:00 via WP-cron; on a low-traffic site, point a real cron job at `wp-cron.php`.
+
+Sync rules:
+
+- Read-only. Up to 50 requests per run (Dinero allows 60/min); HTTP 429 stops the run, the next run continues.
+- Members are linked to Dinero contacts by e-mail; the rest are listed for manual linking.
+- `GET invoices?changesSince=` since the last complete run (first run: 3 months before the membership year).
+  Lines are read once per invoice with `GET invoices/{guid}`.
+- An invoice pays, in order: the period already linked to it; the member's oldest open period; the period for
+  its membership year (invoices dated from `renewal_from`, default 1 March, count for the next year); else a new period.
+- Periods only move forward. Paid is never undone; an imported period only changes when Dinero shows it paid.
+  Imported periods Dinero hasn't confirmed are listed for the cashier, who can mark them "ikke betalt".
+- A deleted invoice puts an unpaid period back on the cashier's list.
+- Changing fees, dates or the product mapping re-reads invoices from the start.
+- Two failures in a row e-mail the administrator. A failed run changes nothing.
+- Hooks for Phase 4: `vhus_period_paid( $period_id, $member_id )`, `vhus_key_fee_paid( $member_id, $invoice_guid )`.
+
 ## Roles
 
 | Role | Capabilities |
@@ -70,4 +103,4 @@ changes the stored details.
 A throwaway WordPress on SQLite (Local's PHP 8.2 + WP-CLI) was used for testing; `.claude/launch.json`
 starts it on http://localhost:8891. Test logins there: `admin` / `admin-test-pw`, `kontakt` / `kontakt-test-pw`
 (contact for Textil), `kasserer` / `kasserer-test-pw`. Outgoing mail is written to `mail.log` in the scratchpad
-by a test-only mu-plugin. It lives in a temporary folder and will disappear; it is not needed for the plugin.
+by a test-only mu-plugin. A mock Dinero API (`dinero-mock` in launch.json, port 8892) stands in for Dinero there. It lives in a temporary folder and will disappear; it is not needed for the plugin.
