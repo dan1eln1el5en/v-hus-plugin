@@ -28,3 +28,5 @@
 .vhus-pre { background: #f6f7f7; padding: 8px 12px; overflow-x: auto; }
 .vhus-error { color: #b32d2e; }
 .vhus .button-link.vhus-danger { color: #b32d2e; }
+.vhus tr.vhus-old td { background: #fcf9e8; }
+.vhus tr.vhus-old td:first-child { box-shadow: inset 3px 0 0 #dba617; }

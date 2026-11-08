@@ -11,8 +11,8 @@ The plugin itself is in `vhus-medlemmer/` (zip that folder to install).
 | 1. Core | Tables, roles, settings, Excel import with dry run, member and workshop screens | Done |
 | 2. Sign-up and waiting lists | Public form, contact approval, e-mails, ready-to-invoice list | Done |
 | 3. Dinero sync | Contact linking, nightly invoice sync, paid status | Done (tested against a mock; needs real credentials) |
-| 4. Gate queue | Gate actions, EasyAccess import file, XML match | Next |
-| 5. GDPR and polish | Retention jobs, privacy notice, user guides | |
+| 4. Gate queue | Gate actions, EasyAccess import file, XML match | Done (XML format guessed; check with a real export) |
+| 5. GDPR and polish | Retention jobs, privacy notice, user guides | Next |
 
 ## Layout
 
@@ -36,12 +36,16 @@ vhus-medlemmer/
     class-signup.php        public form, shortcode [vhus_tilmelding]
     class-dinero-client.php read-only Dinero API client (token cache, paging, 429/401 handling)
     class-dinero-sync.php   nightly sync: contact linking, invoice → period matching, paid status
+    class-gate.php          EasyAccess action queue, event rules, reminders, access groups
+    class-easyaccess.php    tolerant reader for the EasyAccess XML user export + phone matching
+    class-xlsx-writer.php   .xlsx writer for the EasyAccess import file (all cells as text)
   public/signup.css         form layout (inherits theme styles)
   admin/
     class-admin.php         menus, screens, admin-post handlers
     class-members-table.php WP_List_Table
     class-queues.php        Ventelister (contacts) and Fakturering (cashier)
     class-dinero-page.php   Dinero screen: status, sync now, product mapping, manual linking, import check
+    class-gate-page.php     Port screen: open actions, import-file download, done/undo, XML comparison
 ```
 
 ## Sign-up page
@@ -88,6 +92,28 @@ Sync rules:
 - Changing fees, dates or the product mapping re-reads invoices from the start.
 - Two failures in a row e-mail the administrator. A failed run changes nothing.
 - Hooks for Phase 4: `vhus_period_paid( $period_id, $member_id )`, `vhus_key_fee_paid( $member_id, $invoice_guid )`.
+
+## Gate queue (EasyAccess)
+
+EasyAccess has no API, so the plugin keeps a to-do list for the gate admin (V-huset → Port):
+
+| Event | Action |
+| --- | --- |
+| Membership paid, member not in EasyAccess | Opret bruger (in the downloadable import file) |
+| Membership paid, member already in EasyAccess (renewal) | Tilføj til gruppe (e.g. Medlem 2027/28) |
+| New phone, or a new fob for someone in EasyAccess | Ret bruger |
+| Last approved workshop seat ends | Slet bruger (snapshot kept, so it survives data deletion) |
+
+- "In EasyAccess" is a flag on the member: set for everyone imported from the Excel list, for members
+  matched from an EasyAccess XML export, and when an "Opret bruger" is marked done; a done "Slet bruger" clears it.
+- Import file columns follow the EasyAccess template: Fulde navn, ID (= member id), Pinkode (empty),
+  Nøglekort/Brik, Telefon (+45…), Gruppenavn. All cells are text.
+- A replacement fob is queued at once (the old one may be lost) and listed on Fakturering until Dinero shows
+  the key fee paid. This differs from the spec, which waited for payment; the old fob staying active is the bigger risk.
+- Daily at 07:00: one e-mail a week about tasks older than 7 days; in March, a reminder to create next year's
+  group with its dates (year start → `grace_until` the year after).
+- XML comparison: the export's exact layout isn't documented, so the reader accepts both element-style
+  (`<Bruger><Telefon>…`) and attribute-style (`<User Phone="…"/>`) records and matches on phone number.
 
 ## Roles
 

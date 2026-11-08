@@ -174,6 +174,12 @@ class Admin {
 						<span class="vhus-card-l">Klar til fakturering</span>
 					</a>
 				<?php endif; ?>
+				<?php if ( current_user_can( Roles::CAP_GATE ) ) : ?>
+					<a class="vhus-card" href="<?php echo esc_url( admin_url( 'admin.php?page=vhus-gate' ) ); ?>">
+						<span class="vhus-card-n"><?php echo (int) \VHus\Gate::open_count(); ?></span>
+						<span class="vhus-card-l">Portopgaver</span>
+					</a>
+				<?php endif; ?>
 				<?php foreach ( array( 'active', 'awaiting_payment', 'waiting' ) as $st ) : ?>
 					<a class="vhus-card" href="<?php echo esc_url( admin_url( 'admin.php?page=vhus-members&status=' . $st ) ); ?>">
 						<span class="vhus-card-n"><?php echo (int) ( $by_st[ $st ] ?? 0 ); ?></span>

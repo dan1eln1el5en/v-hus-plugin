@@ -209,6 +209,7 @@ class Importer {
 					++$counts['seats'];
 				}
 				Members::ensure_period( $member_id, $year, 'full', 'imported' );
+				Gate::set_linked( $member_id, true ); // Everyone on the old list already has gate access.
 			}
 			$wpdb->query( 'COMMIT' );
 		} catch ( \Throwable $e ) {

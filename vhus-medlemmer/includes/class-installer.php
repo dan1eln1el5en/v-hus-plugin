@@ -47,8 +47,28 @@ class Installer {
 		if ( false === get_option( Settings::OPTION ) ) {
 			add_option( Settings::OPTION, Settings::defaults(), '', false );
 		}
+		self::migrate( get_option( 'vhus_db_version' ) );
 		Dinero_Sync::schedule();
+		Gate::schedule();
 		update_option( 'vhus_db_version', VHUS_DB_VERSION, false );
+	}
+
+	/**
+	 * One-off data changes per schema version.
+	 *
+	 * @param mixed $from Stored DB version before this install.
+	 */
+	private static function migrate( $from ): void {
+		global $wpdb;
+		if ( $from && (int) $from < 4 ) {
+			// v4: members imported from Excel are already in EasyAccess.
+			$wpdb->query(
+				$wpdb->prepare(
+					'UPDATE ' . DB::t( 'members' ) . ' SET easyaccess_linked_at = %s WHERE easyaccess_linked_at IS NULL AND id IN ( SELECT member_id FROM ' . DB::t( 'seats' ) . " WHERE note = 'Importeret fra Excel' )",
+					Util::now()
+				)
+			);
+		}
 	}
 
 	/** Insert seed workshops that don't exist yet (matched on slug). */

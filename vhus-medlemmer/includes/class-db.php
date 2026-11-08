@@ -57,6 +57,7 @@ class DB {
   city varchar(100) NOT NULL DEFAULT '',
   dinero_contact_guid varchar(36) DEFAULT NULL,
   consent_at datetime DEFAULT NULL,
+  easyaccess_linked_at datetime DEFAULT NULL,
   notes text,
   created_at datetime NOT NULL,
   updated_at datetime NOT NULL,
@@ -112,6 +113,7 @@ class DB {
   issued_at datetime DEFAULT NULL,
   returned_at datetime DEFAULT NULL,
   fee_paid_at datetime DEFAULT NULL,
+  fee_due tinyint(1) NOT NULL DEFAULT 0,
   PRIMARY KEY  (id),
   KEY member_id (member_id)
 ) $c;",

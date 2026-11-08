@@ -136,6 +136,14 @@ class Members {
 		$row['updated_at'] = Util::now();
 		$wpdb->update( DB::t( 'members' ), $row, array( 'id' => $id ) );
 		Log::add( 'member_update', 'member', $id, array( 'fields' => $changed ) );
+		/**
+		 * Member details changed.
+		 *
+		 * @param int      $id      Member id.
+		 * @param string[] $changed Changed field names.
+		 * @param array    $before  Row before the change.
+		 */
+		do_action( 'vhus_member_updated', $id, $changed, $before );
 	}
 
 	/**
@@ -235,6 +243,15 @@ class Members {
 		}
 		$wpdb->update( DB::t( 'seats' ), $row, array( 'id' => $seat_id ) );
 		Log::add( 'seat_status', 'member', (int) $seat->member_id, array( 'seat' => $seat_id, 'from' => $seat->status, 'to' => $status ) );
+		/**
+		 * A seat changed status (approve, decline, leave, ...).
+		 *
+		 * @param int    $seat_id   Seat id.
+		 * @param string $from      Old status.
+		 * @param string $to        New status.
+		 * @param int    $member_id Member id.
+		 */
+		do_action( 'vhus_seat_status', $seat_id, $seat->status, $status, (int) $seat->member_id );
 	}
 
 	/** Update just a seat's note. */
@@ -307,6 +324,12 @@ class Members {
 		return $wpdb->get_results( $wpdb->prepare( 'SELECT * FROM ' . DB::t( 'keys' ) . ' WHERE member_id = %d ORDER BY id DESC', $member_id ) );
 	}
 
+	/** The member's current fob number ('' if none). */
+	public static function current_fob( int $member_id ): string {
+		global $wpdb;
+		return (string) $wpdb->get_var( $wpdb->prepare( 'SELECT fob_number FROM ' . DB::t( 'keys' ) . ' WHERE member_id = %d AND returned_at IS NULL ORDER BY id DESC LIMIT 1', $member_id ) );
+	}
+
 	/** Register a new fob. Replacements are new rows; the previous open one is marked returned. */
 	public static function add_key( int $member_id, string $fob_number ): void {
 		global $wpdb;
@@ -314,7 +337,8 @@ class Members {
 		if ( '' === $fob ) {
 			return;
 		}
-		$now = Util::now();
+		$now      = Util::now();
+		$previous = (string) $wpdb->get_var( $wpdb->prepare( 'SELECT fob_number FROM ' . DB::t( 'keys' ) . ' WHERE member_id = %d AND returned_at IS NULL ORDER BY id DESC LIMIT 1', $member_id ) );
 		$wpdb->query(
 			$wpdb->prepare( 'UPDATE ' . DB::t( 'keys' ) . ' SET returned_at = %s WHERE member_id = %d AND returned_at IS NULL', $now, $member_id )
 		);
@@ -326,7 +350,17 @@ class Members {
 				'issued_at' => $now,
 			)
 		);
-		Log::add( 'key_issue', 'member', $member_id, array( 'key' => (int) $wpdb->insert_id ) );
+		$key_id = (int) $wpdb->insert_id;
+		Log::add( 'key_issue', 'member', $member_id, array( 'key' => $key_id ) );
+		/**
+		 * A fob was registered for a member.
+		 *
+		 * @param int    $member_id Member id.
+		 * @param int    $key_id    Key row id.
+		 * @param string $fob       New fob number.
+		 * @param string $previous  Previous open fob number, '' if none.
+		 */
+		do_action( 'vhus_key_issued', $member_id, $key_id, $fob, $previous );
 	}
 
 	/**

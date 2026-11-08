@@ -433,7 +433,7 @@ class Dinero_Sync {
 		}
 
 		if ( ! empty( $kinds['key'] ) && $paid ) {
-			$key_id = (int) $wpdb->get_var( $wpdb->prepare( 'SELECT id FROM ' . DB::t( 'keys' ) . ' WHERE member_id = %d AND fee_paid_at IS NULL ORDER BY id DESC LIMIT 1', $member_id ) );
+			$key_id = (int) $wpdb->get_var( $wpdb->prepare( 'SELECT id FROM ' . DB::t( 'keys' ) . ' WHERE member_id = %d AND fee_paid_at IS NULL ORDER BY fee_due DESC, id DESC LIMIT 1', $member_id ) );
 			if ( $key_id ) {
 				$wpdb->update( DB::t( 'keys' ), array( 'fee_paid_at' => $paid_at ), array( 'id' => $key_id ) );
 			}
